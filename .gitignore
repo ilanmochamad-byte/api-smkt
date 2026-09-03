@@ -1,0 +1,38 @@
+# ══ API Classync — REST untuk aplikasi mobile ClassyncApp ══
+
+# ── Log & runtime ──
+error_log
+*.log
+debug_log.txt
+proxy-log.txt
+/tmp/
+/public/
+/cgi-bin/
+
+# ── Rahasia & data pribadi — JANGAN PERNAH di-commit ──
+*.sql
+config-*.php
+service-account*.json
+*.pem
+
+# ── Arsip ──
+*.zip
+*.tar.gz
+
+# ── Pustaka pihak ketiga: composer murni, pulihkan dengan `composer install` ──
+/vendor/
+
+# ── Backend Node yang menganggur, dijadwalkan dicabut (lihat CLAUDE.md) ──
+/classync-backend/
+
+# ── Dikelola cPanel / AutoSSL, jangan ditimpa ──
+/.htaccess
+/.user.ini
+/php.ini
+/.well-known/
+
+# ── Sampah OS & editor ──
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

@@ -1,0 +1,14 @@
+{
+    "name": "smktah/api-classync",
+    "description": "REST API Classync untuk aplikasi mobile ClassyncApp - SMK Terpadu Al Hasan",
+    "type": "project",
+    "license": "proprietary",
+    "require": {
+        "php": ">=8.0",
+        "google/apiclient": "^2.18"
+    },
+    "config": {
+        "optimize-autoloader": true,
+        "sort-packages": true
+    }
+}

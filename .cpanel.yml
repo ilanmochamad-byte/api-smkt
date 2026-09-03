@@ -1,0 +1,17 @@
+---
+# Deploy API Classync ke produksi.
+#
+# ATURAN POKOK: hanya MENYALIN, tidak pernah MENGHAPUS.
+# Yang tidak disebut di sini tidak tersentuh:
+#   vendor/  classync-backend/  tmp/  public/  cgi-bin/  .well-known/
+#   .htaccess  .user.ini  php.ini   (dikelola cPanel sendiri)
+
+deployment:
+  tasks:
+    - export DEPLOYPATH=/DATA/k1807225/public_html/api.smkt.alhasan.co.id
+
+    - /bin/mkdir -p $DEPLOYPATH/includes
+    - /bin/cp -Rf includes/.   $DEPLOYPATH/includes/
+
+    - /bin/cp -f *.php         $DEPLOYPATH/
+    - /bin/cp -f kop_surat.png $DEPLOYPATH/
