@@ -16,11 +16,19 @@ if ($_SERVER['REQUEST_METHOD'] == 'OPTIONS') {
     exit();
 }
 
-// 3. Kredensial Database Terpusat
-$db_host = "localhost";
-$db_user = "k1807225_user_absensi";
-$db_pass = "Smktah2017!@#";
-$db_name = "k1807225_sekolah_absensi";
+// 3. Kredensial Database — dimuat dari luar webroot.
+// Berkas itu mendefinisikan $db_host, $db_user, $db_pass, $db_name.
+$config_db = '/DATA/k1807225/config/db-classync.php';
+if (!is_readable($config_db)) {
+    http_response_code(500);
+    echo json_encode([
+        'success' => false,
+        'error' => true,
+        'message' => 'Sistem sedang gangguan (DB Error).'
+    ]);
+    exit();
+}
+require $config_db;
 
 // 4. Inisialisasi Koneksi
 try {
