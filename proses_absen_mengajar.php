@@ -56,7 +56,12 @@ try {
         
         if (!is_dir($target_dir_absolute)) { mkdir($target_dir_absolute, 0775, true); }
         
-        $file_name = time() . '-' . basename($_FILES["foto_bukti"]["name"]);
+        $info = @getimagesize($_FILES["foto_bukti"]["tmp_name"]);
+        $ekstensi_izin = [IMAGETYPE_JPEG => 'jpg', IMAGETYPE_PNG => 'png', IMAGETYPE_WEBP => 'webp'];
+        if ($info === false || !isset($ekstensi_izin[$info[2]])) {
+            throw new Exception("Foto bukti harus berupa gambar JPG, PNG, atau WEBP.");
+        }
+        $file_name = "absen-mengajar-" . $guru_id . "-" . time() . "-" . rand(100, 999) . "." . $ekstensi_izin[$info[2]];
         
         if (move_uploaded_file($_FILES["foto_bukti"]["tmp_name"], $target_dir_absolute . $file_name)) {
             $foto_path_db = $save_path_relative . $file_name;

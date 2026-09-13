@@ -93,7 +93,12 @@ try {
         }
 
         // Buat nama file unik
-        $file_extension = pathinfo($_FILES["foto_profil"]["name"], PATHINFO_EXTENSION);
+        $info = @getimagesize($_FILES["foto_profil"]["tmp_name"]);
+        $ekstensi_izin = [IMAGETYPE_JPEG => 'jpg', IMAGETYPE_PNG => 'png', IMAGETYPE_WEBP => 'webp'];
+        if ($info === false || !isset($ekstensi_izin[$info[2]])) {
+            throw new Exception("Foto profil harus berupa gambar JPG, PNG, atau WEBP.");
+        }
+        $file_extension = $ekstensi_izin[$info[2]];
         $file_name = "guru-" . $guru_id . "-" . time() . "." . $file_extension;
         $target_file_absolute = $target_dir_absolute . $file_name;
 
