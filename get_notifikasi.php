@@ -1,7 +1,7 @@
 <?php
 // get_notifikasi.php
 header("Content-Type: application/json; charset=UTF-8");
-ini_set('display_errors', 1); error_reporting(E_ALL);
+ini_set('display_errors', '0'); error_reporting(E_ALL);
 
 // Database
 require_once 'includes/db.php';

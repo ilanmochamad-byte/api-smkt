@@ -1,6 +1,6 @@
 <?php
 // export_rekap_absen_harian.php
-ini_set('display_errors', 1); error_reporting(E_ALL);
+ini_set('display_errors', '0'); error_reporting(E_ALL);
 header("Content-Type: application/json; charset=UTF-8"); header("Access-Control-Allow-Origin: *");
 header("Access-Control-Allow-Methods: GET, OPTIONS");
 header("Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With");
