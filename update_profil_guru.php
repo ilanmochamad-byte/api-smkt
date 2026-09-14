@@ -103,9 +103,10 @@ try {
 
         // Buat nama file unik
         $info = @getimagesize($_FILES["foto_profil"]["tmp_name"]);
-        $ekstensi_izin = [IMAGETYPE_JPEG => 'jpg', IMAGETYPE_PNG => 'png', IMAGETYPE_WEBP => 'webp'];
+        $ekstensi_izin = [IMAGETYPE_JPEG => 'jpg', IMAGETYPE_PNG => 'png',
+                          IMAGETYPE_WEBP => 'webp', IMAGETYPE_GIF => 'gif'];
         if ($info === false || !isset($ekstensi_izin[$info[2]])) {
-            throw new Exception("Foto profil harus berupa gambar JPG, PNG, atau WEBP.");
+            throw new Exception("Foto profil harus berupa gambar JPG, PNG, WEBP, atau GIF.");
         }
         $file_extension = $ekstensi_izin[$info[2]];
         $file_name = "guru-" . $guru_id . "-" . time() . "." . $file_extension;

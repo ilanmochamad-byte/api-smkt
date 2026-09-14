@@ -63,9 +63,10 @@ try {
         if (!is_dir($target_dir_absolute)) { mkdir($target_dir_absolute, 0775, true); }
         
         $info = @getimagesize($_FILES["foto_bukti"]["tmp_name"]);
-        $ekstensi_izin = [IMAGETYPE_JPEG => 'jpg', IMAGETYPE_PNG => 'png', IMAGETYPE_WEBP => 'webp'];
+        $ekstensi_izin = [IMAGETYPE_JPEG => 'jpg', IMAGETYPE_PNG => 'png',
+                          IMAGETYPE_WEBP => 'webp', IMAGETYPE_GIF => 'gif'];
         if ($info === false || !isset($ekstensi_izin[$info[2]])) {
-            throw new Exception("Foto bukti harus berupa gambar JPG, PNG, atau WEBP.");
+            throw new Exception("Foto bukti harus berupa gambar JPG, PNG, WEBP, atau GIF.");
         }
         $file_extension = $ekstensi_izin[$info[2]];
         $file_name = "absen-" . $guru_id . "-" . time() . "." . $file_extension;
