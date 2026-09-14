@@ -31,7 +31,7 @@ try {
         throw new Exception("Koneksi database gagal: " . $conn->connect_error);
     }
     
-    $guru_id = $_POST['guru_id'] ?? 0;
+    $guru_id = (int)($_POST['guru_id'] ?? 0);
     $jadwal_id = $_POST['jadwal_id'] ?? 0;
     $tipe_absensi = $_POST['tipe_absensi'] ?? '';
     // BARU: Ambil data latitude dan longitude

@@ -30,7 +30,7 @@ try {
         throw new Exception("Koneksi database gagal: " . $conn->connect_error);
     }
 
-    $guru_id = $_POST['guru_id'] ?? 0;
+    $guru_id = (int)($_POST['guru_id'] ?? 0);
     if ($guru_id <= 0) { // Cek jika 0 atau kurang
         http_response_code(400); // Bad Request
         throw new Exception("Guru ID tidak valid.");

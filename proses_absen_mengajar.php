@@ -22,7 +22,7 @@ if ($conn->connect_error) {
 
 try {
     // 1. Ambil Data Utama
-    $guru_id = $_POST['guru_id'] ?? 0;
+    $guru_id = (int)($_POST['guru_id'] ?? 0);
     $jadwal_id = $_POST['jadwal_id'] ?? 0;
     $absensi_siswa_json = $_POST['absensi_siswa'] ?? '[]';
     $absensi_siswa = json_decode($absensi_siswa_json, true);
@@ -62,7 +62,7 @@ try {
         if ($info === false || !isset($ekstensi_izin[$info[2]])) {
             throw new Exception("Foto bukti harus berupa gambar JPG, PNG, WEBP, atau GIF.");
         }
-        $file_name = "absen-mengajar-" . $guru_id . "-" . time() . "-" . rand(100, 999) . "." . $ekstensi_izin[$info[2]];
+        $file_name = "absen-mengajar-" . $guru_id . "-" . time() . "-" . bin2hex(random_bytes(4)) . "." . $ekstensi_izin[$info[2]];
         
         if (move_uploaded_file($_FILES["foto_bukti"]["tmp_name"], $target_dir_absolute . $file_name)) {
             $foto_path_db = $save_path_relative . $file_name;
