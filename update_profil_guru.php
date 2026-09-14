@@ -46,7 +46,16 @@ try {
     $pendidikan_s2 = $_POST['pendidikan_s2'] ?? '';
     $pendidikan_s3 = $_POST['pendidikan_s3'] ?? '';
     $tugas_tambahan = $_POST['tugas_tambahan'] ?? '';
-    $foto_lama_relative = $_POST['foto_lama'] ?? ''; // Path relatif foto lama dari DB/POST
+    // Foto lama diambil dari basis data, BUKAN dari request. Nilai kiriman
+    // bisa diarahkan ke berkas mana pun di luar folder unggahan — baik untuk
+    // dihapus lewat unlink(), maupun untuk ditanam sebagai path foto palsu.
+    // Aplikasi masih mengirim medan foto_lama; medan itu sengaja diabaikan.
+    $stmt_lama = $conn->prepare("SELECT foto_profil FROM guru WHERE id = ?");
+    $stmt_lama->bind_param("i", $guru_id);
+    $stmt_lama->execute();
+    $baris_lama = $stmt_lama->get_result()->fetch_assoc();
+    $stmt_lama->close();
+    $foto_lama_relative = $baris_lama['foto_profil'] ?? '';
 
     // --- PERBAIKAN 1: Konversi Tanggal Lahir ---
     $tanggal_lahir_db = null; // Default null jika input kosong atau salah format
@@ -104,10 +113,14 @@ try {
 
         // Pindahkan file yang diupload
         if (move_uploaded_file($_FILES["foto_profil"]["tmp_name"], $target_file_absolute)) {
-            // --- PERBAIKAN 3: Hapus foto lama dengan path absolut ---
+            // Hapus foto lama, dipagari agar tidak bisa menembus keluar
+            // folder unggahan walau nilai di basis data rusak.
             if (!empty($foto_lama_relative)) {
-                $foto_lama_absolute = $base_upload_path_absolute . $foto_lama_relative;
-                if (file_exists($foto_lama_absolute) && is_file($foto_lama_absolute)) {
+                $foto_lama_absolute = realpath($base_upload_path_absolute . $foto_lama_relative);
+                $batas_aman = realpath($base_upload_path_absolute . 'uploads/');
+                if ($foto_lama_absolute !== false && $batas_aman !== false
+                    && strpos($foto_lama_absolute, $batas_aman . DIRECTORY_SEPARATOR) === 0
+                    && is_file($foto_lama_absolute)) {
                     unlink($foto_lama_absolute);
                 }
             }
