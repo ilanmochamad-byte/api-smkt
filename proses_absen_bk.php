@@ -99,6 +99,40 @@ try {
 
     $conn->begin_transaction();
 
+    // Penjaga duplikat. Honor bimbingan dihitung PER BARIS
+    // (keuangan_helper.php:137), jadi kiriman yang terulang karena jaringan
+    // putus akan terbayar dua kali.
+    //
+    // Kuncinya bukan tanggal saja. Guru BK memang melayani beberapa kali dalam
+    // sehari — riwayatnya memuat 16 hari dengan 2 sampai 5 layanan — sehingga
+    // kunci per tanggal akan memotong honor yang sah. Yang membedakan satu
+    // layanan dari layanan lain adalah topik dan sasarannya, dan kombinasi itu
+    // tidak pernah berulang satu kali pun dalam seluruh riwayat. Topik saja
+    // tidak cukup: topik yang sama wajar dibawakan ke dua kelas berbeda.
+    //
+    // Ini pemeriksaan biasa, bukan kuncian baris. Kuncinya melintasi dua tabel
+    // sehingga tidak bisa dijadikan batasan unik, dan FOR UPDATE di sini akan
+    // mengunci terlalu banyak baris karena DATE(waktu_absensi) bukan indeks —
+    // absensi tabel tersibuk, menguncinya akan menahan absen guru lain. Jadi
+    // celah sepersekian detik untuk dua kiriman yang benar-benar bersamaan
+    // masih ada; yang tertutup adalah kiriman ulang yang nyata terjadi.
+    $stmt_dup = $conn->prepare("
+        SELECT a.id FROM absensi a
+        JOIN jurnal_bk j ON j.absensi_guru_id = a.id
+        WHERE a.guru_id = ? AND a.tipe_absensi = 'bimbingan'
+          AND DATE(a.waktu_absensi) = CURDATE()
+          AND j.topik_tema = ? AND j.sasaran_layanan = ?
+        LIMIT 1
+    ");
+    $stmt_dup->bind_param("iss", $guru_id, $topik_tema, $sasaran_layanan);
+    $stmt_dup->execute();
+    $sudah_ada = $stmt_dup->get_result()->num_rows > 0;
+    $stmt_dup->close();
+
+    if ($sudah_ada) {
+        throw new Exception("Layanan BK dengan topik dan sasaran yang sama sudah tercatat hari ini.");
+    }
+
     // 1. Simpan Absensi
     $stmt_absen = $conn->prepare("INSERT INTO absensi (guru_id, jadwal_id, tipe_absensi, waktu_absensi, status, foto_bukti, latitude, longitude) VALUES (?, 0, 'bimbingan', NOW(), 'Hadir', ?, ?, ?)");
     $stmt_absen->bind_param("isdd", $guru_id, $foto_path_db, $latitude, $longitude);
