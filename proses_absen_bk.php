@@ -17,6 +17,23 @@ if ($_SERVER['REQUEST_METHOD'] == 'OPTIONS') {
 require_once 'includes/db.php';
 $base_upload_path_absolute = "/DATA/k1807225/public_html/smkt.alhasan.co.id/classync/"; 
 
+// Terjemahkan kode galat unggah PHP jadi kalimat yang bisa ditindaklanjuti guru.
+// Dibedakan dari "tidak ada foto" dengan sengaja: dalam kasus ini guru melihat
+// fotonya terlampir di layar, jadi pesan "wajib diupload" hanya membingungkan.
+function pesanGagalUnggah($kode) {
+    switch ($kode) {
+        case UPLOAD_ERR_INI_SIZE:
+        case UPLOAD_ERR_FORM_SIZE:
+            return "Foto bukti gagal diunggah: ukuran berkasnya terlalu besar.";
+        case UPLOAD_ERR_PARTIAL:
+            return "Foto bukti gagal diunggah: pengiriman terputus. Silakan coba lagi.";
+        case UPLOAD_ERR_NO_FILE:
+            return "Foto bukti wajib diupload.";
+        default:
+            return "Foto bukti gagal diunggah. Silakan coba lagi atau hubungi admin.";
+    }
+}
+
 // $conn = new mysqli($db_host, $db_user, $db_pass, $db_name);
 // if ($conn->connect_error) {
 //     http_response_code(500);
@@ -45,27 +62,39 @@ try {
         throw new Exception("Data rencana bimbingan tidak lengkap. Harap isi form dengan benar.");
     }
 
+    // Foto bukti wajib. Blok ini dulunya tidak punya else, sehingga galat
+    // seperti UPLOAD_ERR_INI_SIZE lewat diam-diam dan barisnya tetap tersimpan
+    // dengan foto_bukti kosong. proses_absen_mengajar.php dan
+    // proses_absen_sederhana.php sudah melempar Exception dalam keadaan sama.
+    if (!isset($_FILES['foto_bukti'])) {
+        throw new Exception("Foto bukti wajib diupload.");
+    }
+    if ($_FILES['foto_bukti']['error'] !== UPLOAD_ERR_OK) {
+        throw new Exception(pesanGagalUnggah($_FILES['foto_bukti']['error']));
+    }
+
     $foto_path_db = null;
-    if (isset($_FILES['foto_bukti']) && $_FILES['foto_bukti']['error'] === UPLOAD_ERR_OK) {
-        $target_dir_relative = "uploads/";
-        $target_dir_absolute = $base_upload_path_absolute . $target_dir_relative;
-        
-        if (!file_exists($target_dir_absolute)) mkdir($target_dir_absolute, 0775, true);
-        
-        $info = @getimagesize($_FILES["foto_bukti"]["tmp_name"]);
-        $ekstensi_izin = [IMAGETYPE_JPEG => 'jpg', IMAGETYPE_PNG => 'png',
-                          IMAGETYPE_WEBP => 'webp', IMAGETYPE_GIF => 'gif'];
-        if ($info === false || !isset($ekstensi_izin[$info[2]])) {
-            throw new Exception("Foto bukti harus berupa gambar JPG, PNG, WEBP, atau GIF.");
-        }
-        $file_extension = $ekstensi_izin[$info[2]];
-        $file_name = "bk-jurnal-" . $guru_id . "-" . time() . "." . $file_extension;
-        
-        if (move_uploaded_file($_FILES["foto_bukti"]["tmp_name"], $target_dir_absolute . $file_name)) {
-            $foto_path_db = $target_dir_relative . $file_name;
-        } else {
-            throw new Exception("Gagal mengunggah foto bukti.");
-        }
+    $foto_absolute = null;
+
+    $target_dir_relative = "uploads/";
+    $target_dir_absolute = $base_upload_path_absolute . $target_dir_relative;
+
+    if (!file_exists($target_dir_absolute)) mkdir($target_dir_absolute, 0775, true);
+
+    $info = @getimagesize($_FILES["foto_bukti"]["tmp_name"]);
+    $ekstensi_izin = [IMAGETYPE_JPEG => 'jpg', IMAGETYPE_PNG => 'png',
+                      IMAGETYPE_WEBP => 'webp', IMAGETYPE_GIF => 'gif'];
+    if ($info === false || !isset($ekstensi_izin[$info[2]])) {
+        throw new Exception("Foto bukti harus berupa gambar JPG, PNG, WEBP, atau GIF.");
+    }
+    $file_extension = $ekstensi_izin[$info[2]];
+    $file_name = "bk-jurnal-" . $guru_id . "-" . time() . "." . $file_extension;
+
+    if (move_uploaded_file($_FILES["foto_bukti"]["tmp_name"], $target_dir_absolute . $file_name)) {
+        $foto_path_db = $target_dir_relative . $file_name;
+        $foto_absolute = $target_dir_absolute . $file_name;
+    } else {
+        throw new Exception("Gagal mengunggah foto bukti.");
     }
 
     $conn->begin_transaction();
@@ -90,6 +119,14 @@ try {
 
 } catch (Exception $e) {
     $conn->rollback();
+
+    // Foto sudah pindah ke uploads/ sebelum transaksi dibuka, jadi rollback
+    // tidak menyentuhnya. Kalau INSERT gagal, berkas itu tidak dirujuk baris
+    // mana pun — hapus, jangan biarkan menumpuk di folder yang sudah 1,8 GB.
+    if (!empty($foto_absolute) && is_file($foto_absolute)) {
+        @unlink($foto_absolute);
+    }
+
     http_response_code(400);
     echo json_encode(['error' => true, 'message' => $e->getMessage()]);
 }
