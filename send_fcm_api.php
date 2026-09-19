@@ -7,14 +7,40 @@ header("Access-Control-Allow-Origin: *");
 header("Access-Control-Allow-Methods: POST");
 
 // --- KEAMANAN SEDERHANA ---
-// Kunci ini untuk memastikan hanya server web admin Anda yang bisa menembak API ini
-$secret_key = "SMKTAH_Classync_2026_Secure!"; 
+// Kunci ini untuk memastikan hanya server web admin Anda yang bisa menembak API
+// ini. Dibaca dari luar webroot: kedua repositori publik, jadi kunci harfiah di
+// berkas ini sama saja dengan tidak ada kunci sama sekali.
+//
+// $fcm_secrets_sah adalah DAFTAR, bukan satu nilai, dan itu disengaja. Selama
+// rotasi ia memuat kunci lama dan baru sekaligus, sehingga tidak pernah ada
+// momen ketika pengirim dan penerima berbeda pendapat — dan rotasinya sendiri
+// tidak menuntut deploy kode sama sekali.
+$config_fcm = '/DATA/k1807225/config/fcm-classync.php';
+if (!is_readable($config_fcm)) {
+    error_log("send_fcm_api: konfigurasi FCM tidak terbaca di " . $config_fcm);
+    http_response_code(500);
+    echo json_encode(['status' => 'error', 'message' => 'Konfigurasi server tidak lengkap']);
+    exit();
+}
+require $config_fcm;
+
+$secrets_sah = (isset($fcm_secrets_sah) && is_array($fcm_secrets_sah)) ? $fcm_secrets_sah : []; 
 
 $json = file_get_contents('php://input');
 $data = json_decode($json, true);
 
-// Validasi Kunci Keamanan
-if (!isset($data['secret']) || $data['secret'] !== $secret_key) {
+// Validasi Kunci Keamanan. hash_equals membandingkan dalam waktu tetap, dan
+// daftar kosong berarti tidak ada yang lolos — bukan semua lolos.
+$secret_dikirim = isset($data['secret']) ? (string)$data['secret'] : '';
+$kunci_cocok = false;
+foreach ($secrets_sah as $kunci_sah) {
+    if (is_string($kunci_sah) && $kunci_sah !== '' && hash_equals($kunci_sah, $secret_dikirim)) {
+        $kunci_cocok = true;
+        break;
+    }
+}
+
+if (!$kunci_cocok) {
     http_response_code(403);
     echo json_encode(['status' => 'error', 'message' => 'Unauthorized / Kunci Rahasia Salah']);
     exit();
