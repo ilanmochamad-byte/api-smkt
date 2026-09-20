@@ -152,10 +152,6 @@ function kirimApns($token, $title, $body, $screen = '') {
         return ['ok' => false, 'http' => 0, 'reason' => 'GagalMembuatToken'];
     }
 
-    $pangkalan = ($cfg['env'] === 'sandbox')
-        ? 'https://api.sandbox.push.apple.com'
-        : 'https://api.push.apple.com';
-
     // 'screen' ditaruh di tingkat ATAS payload, di luar 'aps'. Di sanalah
     // expo-notifications mencarinya: app/_layout.tsx:143 membaca
     // response.notification.request.content.data?.screen, dan content.data
@@ -171,6 +167,46 @@ function kirimApns($token, $title, $body, $screen = '') {
     if ($screen !== '') {
         $payload['screen'] = $screen;
     }
+
+    $utama    = ($cfg['env'] === 'sandbox') ? 'sandbox' : 'production';
+    $cadangan = ($utama === 'sandbox') ? 'production' : 'sandbox';
+
+    $hasil = apnsKirimSekali($utama, $cfg, $jwt, $token, $payload);
+    if ($hasil['ok']) {
+        return $hasil;
+    }
+
+    // BadDeviceToken berarti token dan LINGKUNGANNYA tidak cocok — bukan
+    // token yang rusak; token rusak dijawab Unregistered. Aplikasi dari App
+    // Store menghasilkan token production, build pengembangan menghasilkan
+    // token sandbox, dan keduanya beredar bersamaan di sekolah ini. Satu
+    // nilai $apns_env tidak bisa melayani keduanya, jadi coba yang satunya.
+    if ($hasil['reason'] !== 'BadDeviceToken') {
+        error_log("APNs: ditolak di " . $utama . " HTTP " . $hasil['http'] . " — " . $hasil['reason']);
+        return $hasil;
+    }
+
+    $hasil_cadangan = apnsKirimSekali($cadangan, $cfg, $jwt, $token, $payload);
+    if ($hasil_cadangan['ok']) {
+        // Dicatat dengan sengaja: kalau ternyata SELURUH guru ada di satu
+        // lingkungan, $apns_env bisa dikunci ke sana nanti berdasarkan bukti
+        // dari log ini, bukan berdasarkan tebakan.
+        error_log("APNs: berhasil di " . $cadangan . " setelah " . $utama . " menjawab BadDeviceToken.");
+        return $hasil_cadangan;
+    }
+
+    error_log("APNs: ditolak di kedua lingkungan — " . $utama . ": " . $hasil['reason']
+              . ", " . $cadangan . ": " . $hasil_cadangan['reason']);
+    return $hasil_cadangan;
+}
+
+// Satu kali kirim ke satu lingkungan. Dipisahkan supaya kirimApns() bisa
+// mencoba lingkungan kedua tanpa menyusun ulang payload maupun JWT — JWT
+// yang sama berlaku di production dan sandbox.
+function apnsKirimSekali($env, $cfg, $jwt, $token, $payload) {
+    $pangkalan = ($env === 'sandbox')
+        ? 'https://api.sandbox.push.apple.com'
+        : 'https://api.push.apple.com';
 
     $ch = curl_init($pangkalan . '/3/device/' . rawurlencode($token));
     curl_setopt_array($ch, [
@@ -194,7 +230,7 @@ function kirimApns($token, $title, $body, $screen = '') {
     curl_close($ch);
 
     if ($hasil === false) {
-        error_log("APNs: panggilan gagal — " . $galat);
+        error_log("APNs: panggilan ke " . $env . " gagal — " . $galat);
         return ['ok' => false, 'http' => 0, 'reason' => 'GagalMenghubungi'];
     }
 
@@ -204,7 +240,6 @@ function kirimApns($token, $title, $body, $screen = '') {
 
     $jawaban = json_decode($hasil, true);
     $alasan  = is_array($jawaban) && isset($jawaban['reason']) ? $jawaban['reason'] : 'TidakDiketahui';
-    error_log("APNs: ditolak HTTP " . $http . " — " . $alasan);
 
     return ['ok' => false, 'http' => $http, 'reason' => $alasan];
 }
