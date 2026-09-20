@@ -53,6 +53,47 @@ if (empty($data['token']) || empty($data['title']) || empty($data['body'])) {
     exit();
 }
 
+// --- PEMILAHAN MENURUT BENTUK TOKEN ---
+// ClassyncApp memanggil getDevicePushTokenAsync(), yang mengembalikan token
+// ASLI platform. Bentuknya berbeda, dan bedanya menentukan tujuannya:
+//
+//   mengandung ':'        token registrasi FCM (Android)  -> FCM v1
+//   heksadesimal murni    token perangkat APNs (iOS)      -> APNs langsung
+//   ExponentPushToken...  sisa migrasi sebelum 13 Jul 2026 -> tidak bisa dikirim
+//
+// Sebelum pemilahan ini, token APNs dikirim ke FCM v1 dan selalu ditolak
+// dengan "The registration token is not a valid FCM registration token".
+// Seluruh guru pengguna iPhone tidak menerima notifikasi selama dua bulan.
+$token_tujuan = (string)$data['token'];
+
+if (strpos($token_tujuan, 'ExponentPushToken') === 0) {
+    error_log("send_fcm_api: token Expo lama, guru perlu memasang ulang aplikasi.");
+    http_response_code(400);
+    echo json_encode(['status' => 'error', 'message' => 'Token perangkat sudah usang. Guru perlu memasang ulang aplikasi.']);
+    exit();
+}
+
+if (strpos($token_tujuan, ':') === false && preg_match('/^[0-9a-fA-F]+$/', $token_tujuan)) {
+    // Jalur APNs. Sengaja dipasang SEBELUM autoload vendor Google, supaya
+    // notifikasi iOS tidak ikut memuat pustaka yang tidak dipakainya.
+    require_once __DIR__ . '/includes/pengirim_apns.php';
+
+    $hasil_apns = kirimApns(
+        $token_tujuan,
+        $data['title'],
+        $data['body'],
+        isset($data['screen']) ? (string)$data['screen'] : ''
+    );
+
+    if ($hasil_apns['ok']) {
+        echo json_encode(['status' => 'success', 'response' => ['apns' => true]]);
+    } else {
+        http_response_code(500);
+        echo json_encode(['status' => 'error', 'message' => 'APNs menolak: ' . $hasil_apns['reason']]);
+    }
+    exit();
+}
+
 // --- KONFIGURASI FCM V1 API ---
 $serviceAccountKeyPath = '/DATA/k1807225/credentials/classyncapp-9a6b6-firebase-adminsdk-fbsvc-a059a16151.json';
 $projectId = 'classyncapp-9a6b6';
