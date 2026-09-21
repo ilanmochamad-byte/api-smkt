@@ -12,6 +12,7 @@ header("Access-Control-Allow-Headers: Content-Type, Access-Control-Allow-Headers
 
 // --- KONFIGURASI DATABASE ---
 require_once 'includes/db.php';
+require_once __DIR__ . '/includes/pesan_unggah.php';
 
 $conn = new mysqli($db_host, $db_user, $db_pass, $db_name);
 if ($conn->connect_error) {
@@ -56,6 +57,8 @@ try {
         
         if (!is_dir($target_dir_absolute)) { mkdir($target_dir_absolute, 0775, true); }
         
+        periksaUkuranUnggah($_FILES['foto_bukti']);
+
         $info = @getimagesize($_FILES["foto_bukti"]["tmp_name"]);
         $ekstensi_izin = [IMAGETYPE_JPEG => 'jpg', IMAGETYPE_PNG => 'png',
                           IMAGETYPE_WEBP => 'webp', IMAGETYPE_GIF => 'gif'];
@@ -70,7 +73,10 @@ try {
             throw new Exception("Gagal memindahkan file foto.");
         }
     } else {
-        throw new Exception("Foto bukti wajib diupload.");
+        // Dulu setiap galat unggah dijawab "wajib diupload", termasuk berkas
+        // yang terlalu besar. Bentuk pesan untuk UPLOAD_ERR_NO_FILE tidak
+        // berubah, jadi aplikasi versi lama tetap membaca kalimat yang sama.
+        throw new Exception(pesanGagalUnggah($_FILES['foto_bukti']['error'] ?? UPLOAD_ERR_NO_FILE));
     }
 
     $conn->begin_transaction();

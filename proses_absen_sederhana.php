@@ -16,6 +16,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'OPTIONS') {
 
 // --- INFORMASI DATABASE ANDA ---
 require_once 'includes/db.php';
+require_once __DIR__ . '/includes/pesan_unggah.php';
 // -----------------------------------------
 
 // --- PATH UPLOAD (Sesuaikan jika perlu) ---
@@ -62,6 +63,8 @@ try {
         
         if (!is_dir($target_dir_absolute)) { mkdir($target_dir_absolute, 0775, true); }
         
+        periksaUkuranUnggah($_FILES['foto_bukti']);
+
         $info = @getimagesize($_FILES["foto_bukti"]["tmp_name"]);
         $ekstensi_izin = [IMAGETYPE_JPEG => 'jpg', IMAGETYPE_PNG => 'png',
                           IMAGETYPE_WEBP => 'webp', IMAGETYPE_GIF => 'gif'];
@@ -78,7 +81,8 @@ try {
         }
     } else {
         http_response_code(400);
-        throw new Exception("Foto bukti wajib diupload.");
+        // Lihat catatan yang sama di proses_absen_mengajar.php.
+        throw new Exception(pesanGagalUnggah($_FILES['foto_bukti']['error'] ?? UPLOAD_ERR_NO_FILE));
     }
 
 // Jika tipe absen adalah piket, maka berikan status Pending agar menunggu Kepala Sekolah.

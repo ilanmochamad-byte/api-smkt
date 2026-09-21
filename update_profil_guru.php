@@ -16,6 +16,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'OPTIONS') {
 
 // --- INFORMASI DATABASE ANDA ---
 require_once 'includes/db.php';
+require_once __DIR__ . '/includes/pesan_unggah.php';
 // -----------------------------------------
 
 $conn = null;
@@ -102,6 +103,8 @@ try {
         }
 
         // Buat nama file unik
+        periksaUkuranUnggah($_FILES['foto_profil'], 'Foto profil');
+
         $info = @getimagesize($_FILES["foto_profil"]["tmp_name"]);
         $ekstensi_izin = [IMAGETYPE_JPEG => 'jpg', IMAGETYPE_PNG => 'png',
                           IMAGETYPE_WEBP => 'webp', IMAGETYPE_GIF => 'gif'];
@@ -131,8 +134,10 @@ try {
              throw new Exception("Gagal memindahkan file upload. Error code: " . $_FILES['foto_profil']['error']);
         }
     } elseif (isset($_FILES['foto_profil']) && $_FILES['foto_profil']['error'] != UPLOAD_ERR_NO_FILE) {
-         // Handle error upload lainnya jika perlu
-         throw new Exception("Error saat upload foto: " . $_FILES['foto_profil']['error']);
+         // Dulu hanya nomor kode galat yang dikirim ke aplikasi — tidak berarti
+         // apa-apa bagi guru. Foto profil di sini opsional, jadi yang sampai ke
+         // cabang ini hanya galat sungguhan, bukan "tidak ada foto".
+         throw new Exception(pesanGagalUnggah($_FILES['foto_profil']['error'], 'Foto profil'));
     }
 
 

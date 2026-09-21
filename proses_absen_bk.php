@@ -15,24 +15,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'OPTIONS') {
 }
 
 require_once 'includes/db.php';
+require_once __DIR__ . '/includes/pesan_unggah.php';
 $base_upload_path_absolute = "/DATA/k1807225/public_html/smkt.alhasan.co.id/classync/"; 
 
-// Terjemahkan kode galat unggah PHP jadi kalimat yang bisa ditindaklanjuti guru.
-// Dibedakan dari "tidak ada foto" dengan sengaja: dalam kasus ini guru melihat
-// fotonya terlampir di layar, jadi pesan "wajib diupload" hanya membingungkan.
-function pesanGagalUnggah($kode) {
-    switch ($kode) {
-        case UPLOAD_ERR_INI_SIZE:
-        case UPLOAD_ERR_FORM_SIZE:
-            return "Foto bukti gagal diunggah: ukuran berkasnya terlalu besar.";
-        case UPLOAD_ERR_PARTIAL:
-            return "Foto bukti gagal diunggah: pengiriman terputus. Silakan coba lagi.";
-        case UPLOAD_ERR_NO_FILE:
-            return "Foto bukti wajib diupload.";
-        default:
-            return "Foto bukti gagal diunggah. Silakan coba lagi atau hubungi admin.";
-    }
-}
 
 // $conn = new mysqli($db_host, $db_user, $db_pass, $db_name);
 // if ($conn->connect_error) {
@@ -72,6 +57,8 @@ try {
     if ($_FILES['foto_bukti']['error'] !== UPLOAD_ERR_OK) {
         throw new Exception(pesanGagalUnggah($_FILES['foto_bukti']['error']));
     }
+
+    periksaUkuranUnggah($_FILES['foto_bukti']);
 
     $foto_path_db = null;
     $foto_absolute = null;
