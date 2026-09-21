@@ -152,12 +152,18 @@ function kirimApns($token, $title, $body, $screen = '') {
         return ['ok' => false, 'http' => 0, 'reason' => 'GagalMembuatToken'];
     }
 
-    // 'screen' ditaruh di tingkat ATAS payload, di luar 'aps'. Di sanalah
-    // expo-notifications mencarinya: app/_layout.tsx:143 membaca
-    // response.notification.request.content.data?.screen, dan content.data
-    // diisi dari kunci tingkat atas selain 'aps'. Kalau ditaruh di dalam
-    // 'aps', notifikasinya tetap muncul tapi tautan-dalamnya mati — gagal
-    // yang senyap, jadi ini harus diuji dengan MENEKAN notifikasinya.
+    // 'screen' WAJIB ditaruh di dalam kunci 'body', bukan di tingkat atas.
+    // app/_layout.tsx membaca response.notification.request.content.data?.screen,
+    // dan untuk notifikasi jarak jauh expo-notifications mengisi content.data
+    // HANYA dari userInfo["body"] — lihat NotificationRecords.swift,
+    // serializedNotificationData(). Itu konvensi Expo Push, yang menaruh data
+    // khusus di bawah 'body'; APNs langsung harus menirunya.
+    //
+    // Versi pertama berkas ini menaruh 'screen' di tingkat atas dengan
+    // anggapan content.data diisi dari semua kunci selain 'aps'. Anggapan itu
+    // keliru, dan sempat tampak benar karena uji pertama dilakukan saat
+    // aplikasi kebetulan sudah terbuka di halaman tujuan. Tautan-dalam harus
+    // diuji dari halaman LAIN, dan juga dengan aplikasi ditutup total.
     $payload = [
         'aps' => [
             'alert' => ['title' => $title, 'body' => $body],
@@ -165,7 +171,7 @@ function kirimApns($token, $title, $body, $screen = '') {
         ],
     ];
     if ($screen !== '') {
-        $payload['screen'] = $screen;
+        $payload['body'] = ['screen' => $screen];
     }
 
     $utama    = ($cfg['env'] === 'sandbox') ? 'sandbox' : 'production';
