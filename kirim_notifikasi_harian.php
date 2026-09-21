@@ -5,8 +5,23 @@
 ini_set('display_errors', '0'); 
 error_reporting(E_ALL);
 
+// Hanya boleh dijalankan dari cron. Berkas ini ada di webroot, jadi tanpa
+// penjaga ini siapa pun yang membuka URL-nya bisa memicu notifikasi ke
+// SELURUH guru, berulang kali sesukanya.
+//
+// Aman dipasang: peringatan cron 21 September 2026 berbunyi "Undefined array
+// key REQUEST_METHOD", dan kunci itu selalu ada kalau dipanggil lewat HTTP.
+// Jadi cron yang berjalan sekarang memang memakai CLI, dan penjaga ini tidak
+// mematikannya. Kalau suatu saat cron diubah jadi memanggil URL, penjaga ini
+// yang harus diganti — jangan dibuang.
+if (php_sapi_name() !== 'cli') {
+    http_response_code(403);
+    exit("Skrip ini hanya untuk cron job.\n");
+}
+
 // --- KONFIGURASI PUSAT KONEKSI ---
 require_once 'includes/db.php';
+require_once __DIR__ . '/includes/pengirim_apns.php';
 
 // Path ke file Kunci Akun Layanan (Service Account Key) JSON Anda
 $serviceAccountKeyPath = '/DATA/k1807225/credentials/classyncapp-9a6b6-firebase-adminsdk-fbsvc-a059a16151.json';
@@ -68,15 +83,30 @@ function sendPushNotification($token, $title, $body, $accessToken, $projectId) {
     curl_setopt($ch, CURLOPT_POST, true);
     curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false); 
+    // VERIFYPEER dulu dimatikan di sini. Tidak ada yang menahannya: kode APNs
+    // di includes/pengirim_apns.php memverifikasi sertifikat secara bawaan dan
+    // berhasil menjangkau Apple dari server yang sama, jadi berkas CA-nya
+    // sehat. Mematikan verifikasi berarti sambungan ke Google bisa disadap.
     curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
     
     $result = curl_exec($ch);
-    if ($result === FALSE) {
-        echo 'Curl failed: ' . curl_error($ch) . "\n";
-    }
+    $http   = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $galat  = curl_error($ch);
     curl_close($ch);
-    return $result;
+
+    if ($result === FALSE) {
+        return ['ok' => false, 'reason' => 'GagalMenghubungi: ' . $galat];
+    }
+    if ($http === 200) {
+        return ['ok' => true, 'reason' => ''];
+    }
+
+    // Ambil alasan dari Google supaya log menyebut sebabnya, bukan sekadar
+    // "gagal". UNREGISTERED berarti tokennya mati; INVALID_ARGUMENT pada
+    // token biasanya berarti token itu bukan token FCM sama sekali.
+    $jawaban = json_decode($result, true);
+    $alasan  = $jawaban['error']['status'] ?? ('HTTP ' . $http);
+    return ['ok' => false, 'reason' => $alasan];
 }
 
 /**
@@ -159,8 +189,29 @@ try {
         $stmt_simpan->close();
         
         echo "Mengirim ke Guru ID $guru_id: $body \n";
-        $kirim_hasil = sendPushNotification($token, $title, $body, $accessToken, $projectId);
-        echo "Hasil: $kirim_hasil \n";
+
+        // Pilah menurut bentuk token, sama seperti send_fcm_api.php. Sebelum
+        // ini semua token dikirim ke FCM v1, sehingga sepuluh guru pengguna
+        // iPhone tidak pernah menerima pengingat harian sama sekali.
+        if (strpos($token, 'ExponentPushToken') === 0) {
+            $hasil = ['ok' => false, 'reason' => 'TokenExpoUsang'];
+        } elseif (strpos($token, ':') === false && preg_match('/^[0-9a-fA-F]+$/', $token)) {
+            $apns  = kirimApns($token, $title, $body, '');
+            $hasil = ['ok' => $apns['ok'], 'reason' => $apns['reason']];
+        } else {
+            $hasil = sendPushNotification($token, $title, $body, $accessToken, $projectId);
+        }
+
+        if ($hasil['ok']) {
+            echo "Hasil: terkirim \n";
+        } else {
+            // Dicatat ke error_log, bukan hanya di-echo. Keluaran cron bisa
+            // berakhir di /dev/null dan selama ini memang tidak ada jejaknya
+            // di mana pun. Baris-baris inilah yang memetakan token mana yang
+            // masih hidup, setiap pagi, tanpa perlu mengganggu guru.
+            error_log("kirim_notifikasi_harian: guru " . $guru_id . " gagal — " . $hasil['reason']);
+            echo "Hasil: GAGAL — " . $hasil['reason'] . " \n";
+        }
     }
 
     echo "Skrip notifikasi selesai.\n";
