@@ -11,7 +11,10 @@ header("Access-Control-Allow-Methods: POST, GET, OPTIONS, PUT, DELETE");
 header("Access-Control-Allow-Headers: Content-Type, Access-Control-Allow-Headers, Authorization, X-Requested-With");
 
 // Jika request adalah OPTIONS (Preflight dari React Native/Axios/Fetch), langsung hentikan dengan status 200 OK
-if ($_SERVER['REQUEST_METHOD'] == 'OPTIONS') {
+// ?? '' karena berkas ini juga dimuat dari cron, dan di CLI tidak ada
+// $_SERVER['REQUEST_METHOD'] — kirim_notifikasi_harian.php memicu peringatan
+// ini setiap pagi pukul 07.00 sejak entah kapan.
+if (($_SERVER['REQUEST_METHOD'] ?? '') === 'OPTIONS') {
     http_response_code(200);
     exit();
 }

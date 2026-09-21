@@ -84,6 +84,17 @@ try {
         // SYARAT TRANSPORT: Masuk <= 07:35:59 DAN Pulang >= 13:25:00
         // $waktu_masuk <= '07:35:59' && 
         // $is_disiplin = ($waktu_pulang >= '13:25:00');
+        //
+        // Syarat disiplin SEDANG DINONAKTIFKAN: uang transport dibayar tanpa
+        // memandang jam. Nilai true di bawah mewakili keadaan itu, dan harus
+        // ada — baris 112 masih membacanya untuk memilih kalimat pesan.
+        // Tanpa nilai ini, $is_disiplin tidak terdefinisi, !null bernilai
+        // true, dan guru yang tunjangan transportnya memang Rp 0 diberi tahu
+        // bahwa ia terlambat. Uangnya benar, tuduhannya yang keliru.
+        //
+        // Untuk menghidupkan kembali aturannya: buka komentar dua baris di
+        // atas beserta if/} di bawah, lalu hapus baris ini.
+        $is_disiplin = true;
         $uang_transport = 0;
 
         // if ($is_disiplin) {
