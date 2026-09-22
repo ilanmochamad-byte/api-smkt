@@ -9,12 +9,16 @@ error_reporting(E_ALL);
 // penjaga ini siapa pun yang membuka URL-nya bisa memicu notifikasi ke
 // SELURUH guru, berulang kali sesukanya.
 //
-// Aman dipasang: peringatan cron 21 September 2026 berbunyi "Undefined array
-// key REQUEST_METHOD", dan kunci itu selalu ada kalau dipanggil lewat HTTP.
-// Jadi cron yang berjalan sekarang memang memakai CLI, dan penjaga ini tidak
-// mematikannya. Kalau suatu saat cron diubah jadi memanggil URL, penjaga ini
-// yang harus diganti — jangan dibuang.
-if (php_sapi_name() !== 'cli') {
+// Yang diperiksa adalah pemanggilan lewat HTTP, BUKAN jenis SAPI. Server web
+// selalu mengisi REQUEST_METHOD dan pengirim permintaan tidak bisa
+// menghapusnya; dari cron kunci itu tidak ada, apa pun biner PHP-nya.
+//
+// Versi sebelumnya (dd7774b) memeriksa php_sapi_name() === 'cli', dan itu
+// mematikan pengingat harian 22 September 2026 untuk SELURUH guru: cron di
+// server ini memanggil /usr/bin/php, dan /usr/bin/php di sini adalah php-cgi
+// (SAPI 'cgi-fcgi'), bukan CLI. Penjaganya keluar diam-diam, keluarannya ke
+// /dev/null, dan log tetap bersih. Jangan kembali memeriksa jenis SAPI.
+if (isset($_SERVER['REQUEST_METHOD'])) {
     http_response_code(403);
     exit("Skrip ini hanya untuk cron job.\n");
 }
