@@ -8,6 +8,7 @@ proxy-log.txt
 /tmp/
 /public/
 /cgi-bin/
+/graphify-out/
 
 # ── Rahasia & data pribadi — JANGAN PERNAH di-commit ──
 *.sql
