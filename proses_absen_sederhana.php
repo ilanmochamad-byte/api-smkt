@@ -44,13 +44,24 @@ try {
         throw new Exception("Data tidak lengkap (guru/jadwal/tipe).");
     }
 
-    // Cek Absen Ganda
-    $stmt_cek = $conn->prepare("SELECT id FROM absensi WHERE guru_id = ? AND jadwal_id = ? AND tipe_absensi = ? AND DATE(waktu_absensi) = CURDATE()");
-    $stmt_cek->bind_param("iis", $guru_id, $jadwal_id, $tipe_absensi);
+    // Cek Absen Ganda. Kuncinya berbeda per jenis, sama dengan
+    // proses_approval_absensi.php dan panel web:
+    //   piket  — satu hari satu bayar. Label sesi Pagi/Siang tidak menentukan
+    //            waktu, jadi jadwal_id TIDAK dipakai.
+    //   ekskul — per jadwal: satu guru boleh membina dua ekskul sehari.
+    if ($tipe_absensi === 'piket') {
+        $stmt_cek = $conn->prepare("SELECT id FROM absensi WHERE guru_id = ? AND tipe_absensi = 'piket' AND DATE(waktu_absensi) = CURDATE()");
+        $stmt_cek->bind_param("i", $guru_id);
+    } else {
+        $stmt_cek = $conn->prepare("SELECT id FROM absensi WHERE guru_id = ? AND jadwal_id = ? AND tipe_absensi = ? AND DATE(waktu_absensi) = CURDATE()");
+        $stmt_cek->bind_param("iis", $guru_id, $jadwal_id, $tipe_absensi);
+    }
     $stmt_cek->execute();
     if ($stmt_cek->get_result()->num_rows > 0) {
         http_response_code(409); // 409 Conflict
-        throw new Exception("Anda sudah absen untuk jadwal ini hari ini.");
+        throw new Exception(($tipe_absensi === 'piket')
+            ? "Anda sudah absen piket hari ini. Piket dihitung satu kali per hari, apa pun sesinya."
+            : "Anda sudah absen untuk jadwal ini hari ini.");
     }
     $stmt_cek->close();
 
