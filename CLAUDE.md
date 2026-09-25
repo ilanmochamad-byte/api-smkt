@@ -75,24 +75,81 @@ tanpa token sebelum catatan menunjukkan tidak ada lagi yang memakainya.
 Rekomendasi: token acak opaque, bukan JWT — bisa dicabut seketika saat guru
 kehilangan HP, dan tidak ada secret tambahan yang bisa bocor.
 
-## Temuan audit yang masih terbuka
+## Temuan audit
 
-- **Kritis** — tidak ada autentikasi (lihat di atas). Endpoint paling terdampak:
-  `get_profil_guru.php:9` (mengembalikan kolom `password`), `get_honor.php:5`,
-  `post_nilai.php:42`, `proses_action_piket.php:18`, `save_token.php:16`.
-- **Kritis** — unggahan foto tanpa daftar putih ekstensi di
-  `update_profil_guru.php:96`, `proses_absen_sederhana.php:65`,
-  `proses_absen_bk.php:55`.
-- **Tinggi** — kredensial tertanam: password DB di `includes/db.php`, shared
-  secret FCM di `send_fcm_api.php:11`, dan `classync-backend/.htaccess` memuat
-  `jwt_secret` yang masih berupa teks placeholder.
-- **Tinggi** — `generate_modul_ajar.php:8` tertulis `require_once_ __DIR__`
-  (ada garis bawah berlebih) sehingga berkas ini pasti gagal parse.
-- **Sedang** — `login.php` tanpa pembatasan percobaan.
-- **Sedang** — 56 dari 73 berkas membuka koneksi database sendiri padahal
-  `includes/db.php` sudah menyediakan `$conn`.
+Diperiksa ulang butir per butir ke kode pada 25 September 2026, di `98d6691`.
+"Terverifikasi di kode" artinya berkasnya dibuka dan barisnya dibaca — **bukan**
+bahwa perilakunya diuji di produksi. Tanggal uji produksi di bawah dikutip dari
+`CLAUDE.md` repo classync, yang mencatat pengujian itu; yang tidak tercatat di
+sana, tidak disebut teruji.
 
-## Temuan audit yang sudah ditutup
+### Masih terbuka
+
+- **Kritis** — tidak ada autentikasi (lihat di atas). Belum ada satu berkas pun
+  yang membaca header `Authorization` atau kolom `auth_token`, dan `login.php`
+  belum menerbitkan token — fase A belum dimulai. Endpoint paling terdampak:
+  `get_profil_guru.php:13` mengirim `SELECT *` tabel `guru` utuh sebagai
+  `profil`, termasuk hash `password` dan `push_token`; `get_honor.php:5`;
+  `post_nilai.php:46` mengambil `guru_id` dari tiap butir kiriman;
+  `proses_action_piket.php:18` mengubah status piket siapa pun tanpa memeriksa
+  apa-apa, termasuk bahwa barisnya masih `Pending`; `save_token.php:16`.
+- **Kritis** — endpoint absen aplikasi tidak memeriksa jadwal di sisi server.
+  Ditemukan saat pemeriksaan ulang ini; terpisah dari butir autentikasi dan
+  **tetap ada setelah token ditegakkan**, karena guru yang sah pun bisa
+  mengirim `jadwal_id` sembarang.
+  - `proses_absen_sederhana.php:36-37` menerima `jadwal_id` dan `tipe_absensi`
+    apa adanya. `tipe_absensi` tidak disaring: nilai selain `piket` tersimpan
+    langsung `Hadir` (baris 101). Karena `hitungHonorBulan()` menghitung
+    mengajar lewat `JOIN jadwal_mengajar ON a.jadwal_id = jm.id`, kiriman
+    `tipe_absensi=mengajar` dengan `jadwal_id` mengajar mana pun dibayar
+    sebagai jam mengajar — tanpa lewat `proses_absen_mengajar.php`.
+  - `proses_absen_mengajar.php` hanya menjaga duplikat (baris 44); tidak ada
+    pemeriksaan bahwa jadwalnya milik guru itu, `Aktif`, dan harinya cocok
+    dengan hari ini.
+
+  Padanannya di panel web sudah ditutup di classync `2325e0a`. Di sini
+  memperbaikinya butuh memeriksa dulu nilai apa saja yang dikirim tiap versi
+  aplikasi yang masih beredar.
+- **Tinggi** — `classync-backend/.htaccess` memuat `jwt_secret` placeholder.
+  Folder itu dikecualikan dari repo (`.gitignore:27`), jadi keadaannya di
+  server **perlu diverifikasi** lewat cPanel; salinan lokal bertanggal Oktober
+  2025 masih memuat barisnya. Tertutup bersamaan dengan pencabutan di bagian
+  `classync-backend/` di bawah.
+- **Sedang** — verifikasi TLS dimatikan di dua pengirim FCM:
+  `send_fcm_api.php:150` dan `admin_notifikasi.php:72` memasang
+  `CURLOPT_SSL_VERIFYPEER false` — bearer token Google dikirim tanpa
+  memeriksa sertifikat lawan bicara. `dd7774b` menyalakannya kembali hanya di
+  `kirim_notifikasi_harian.php`. Apakah `admin_notifikasi.php` di repo ini
+  masih dipakai **perlu diverifikasi**.
+- **Sedang** — notifikasi iOS berjalan lewat penanganan sementara
+  `includes/pengirim_apns.php` (`196f452`, `181d5d4`). Ia ditulis untuk
+  dibuang setelah putusan A/B di aplikasi; rinciannya di `CLAUDE.md` classync.
+- **Sedang** — `login.php` tanpa pembatasan percobaan. Baris 18 juga
+  mengirim `connect_error` mentah ke pemanggil.
+- **Sedang** — 55 dari 70 berkas di akar membuka koneksi sendiri dengan
+  `new mysqli`, padahal semuanya juga memuat `includes/db.php` yang sudah
+  menyediakan `$conn` — dua koneksi per permintaan.
+- **Rendah** — `generate_modul_ajar.php:8` tertulis `require_once_ __DIR__`
+  dan gagal `php -l`, pecah sejak commit pertama. Semula berbobot Tinggi;
+  diturunkan karena tidak ada pemanggil di ClassyncApp, baik di HEAD maupun
+  di seluruh riwayat Git-nya (`git log --all -S`). Kandidat penghapusan.
+- **Rendah** — blok `catch` di keempat endpoint unggah mengirim
+  `$e->getMessage()` mentah ke aplikasi (`proses_absen_mengajar.php:131`,
+  `proses_absen_sederhana.php:125`, `proses_absen_bk.php:152`,
+  `update_profil_guru.php:170`). Biasanya pesan aplikasi yang berguna, tapi
+  eksepsi basis data bocor lewat jalur yang sama.
+- **Rendah** — `save_token.php` menulis ke `expo_push_token`, bukan
+  `push_token`, tanpa autentikasi. Tidak ada pemanggil di ClassyncApp, baik di
+  HEAD maupun di seluruh riwayatnya. Layak dihapus.
+- **Rendah** — nama berkas unggahan tanpa komponen acak di tiga endpoint:
+  `proses_absen_sederhana.php:86`, `proses_absen_bk.php:78`, dan
+  `update_profil_guru.php:115` memakai `guru_id` + `time()` saja, sehingga dua
+  unggahan guru yang sama pada detik yang sama saling menimpa. `caa1fcf` hanya
+  mengganti `rand()` di `proses_absen_mengajar.php` — satu-satunya yang
+  memakainya; klaim bahwa keempat endpoint kini memakai `random_bytes()`
+  keliru.
+
+### Sudah ditutup
 
 - ~~`proxy.php` mencatat password dan meneruskan tanpa saringan~~ — commit
   `a6822aa`. Ia meneruskan permintaan apa pun ke domain API sendiri dengan
@@ -112,6 +169,81 @@ kehilangan HP, dan tidak ada secret tambahan yang bisa bocor.
 
   Keempat berkas dihapus manual dari server 25 September 2026. Terverifikasi:
   ketiga alamat menjawab 404, `login.php` tetap 400.
+
+- ~~Kunci duplikat piket di `proses_absen_sederhana.php`~~ — commit `1e0194f`.
+  Piket kini dicek per guru per hari tanpa `jadwal_id` (baris 52-53), ekskul
+  tetap per jadwal (baris 56); penolakan tetap HTTP 409. Teruji di produksi
+  24 September 2026 menurut `CLAUDE.md` classync.
+- ~~`kirim_notifikasi_harian.php` bisa dipicu lewat URL dan buta terhadap
+  iOS~~ — commit `dd7774b`, penjaganya dibetulkan di `548f199`. Penjaga cron
+  memeriksa `isset($_SERVER['REQUEST_METHOD'])` (baris 21), bukan
+  `php_sapi_name()`, karena `/usr/bin/php` di server ini `php-cgi`. Token
+  dipilah lewat `includes/pengirim_apns.php`, kegagalan dicatat per guru
+  (baris 216), dan tidak ada lagi `CURLOPT_SSL_VERIFYPEER false` di berkas
+  ini. Teruji di produksi 22 September 2026 menurut `CLAUDE.md` classync.
+- ~~Tautan-dalam notifikasi iOS tidak terbaca~~ — commit `2a4d1a5`. `screen`
+  kini di bawah kunci `body` (`includes/pengirim_apns.php:173-174`), karena
+  `expo-notifications` hanya mengisi `content.data` dari sana. Teruji di
+  iPhone 22 September 2026 menurut `CLAUDE.md` classync. Android dan
+  peluncuran dari keadaan mati belum — yang kedua perlu rilis aplikasi.
+- ~~Tidak ada batas ukuran unggahan~~ — commit `4ee3eb3`.
+  `includes/pesan_unggah.php` membatasi 8 MB dan dipanggil keempat endpoint
+  sebelum `getimagesize()`; galat unggah kini dibedakan dari "tidak ada foto".
+  Lapis servernya (`upload_max_filesize` 8M, `post_max_size` 16M) ada di
+  MultiPHP INI Editor, bukan di repo.
+- ~~Dua peringatan PHP~~ — commit `139c9ea`. `includes/db.php` memakai
+  `$_SERVER['REQUEST_METHOD'] ?? ''`; `proses_absen_harian.php:97` menyetel
+  `$is_disiplin = true`, sehingga guru bertunjangan transport Rp 0 tidak lagi
+  menerima tuduhan datang di luar jam disiplin.
+- ~~Kunci rahasia FCM tertulis di kode~~ — commit `4958e4d`.
+  `send_fcm_api.php:18` membaca `/DATA/k1807225/config/fcm-classync.php`;
+  kunci dicocokkan dengan `hash_equals()` terhadap **daftar** kunci sah, dan
+  daftar kosong menolak semuanya. Kunci lama tetap permanen di riwayat Git;
+  rotasinya (21 September 2026) tercatat di `CLAUDE.md` classync dan tidak
+  bisa diverifikasi dari kode.
+- ~~`proses_absen_bk.php` tanpa penjaga duplikat~~ — commit `a6cd9d5`.
+  Kuncinya guru + `CURDATE()` + `topik_tema` + `sasaran_layanan`
+  (baris 89-114). Pemeriksaan biasa, bukan kuncian baris — celah untuk dua
+  kiriman yang benar-benar bersamaan masih ada, dan itu disengaja; alasannya
+  di komentar kodenya.
+- ~~`proses_absen_bk.php` mencatat absensi walau unggah foto gagal~~ — commit
+  `98bdfdb`. Foto wajib (baris 55-58), dan foto yang telanjur dipindah dihapus
+  kalau `INSERT` gagal (baris 148).
+- ~~`proses_approval_absensi.php` tidak idempoten~~ — commit `9cca477`.
+  Transaksi, `SELECT ... FOR UPDATE` (baris 124), `UPDATE ... AND status =
+  'Pending'` dengan `affected_rows` sebagai penentu (baris 274-277), penjaga
+  duplikat berkunci per jenis, `status_jadwal = 'Aktif'` di ketiga pencarian
+  jadwal, `ORDER BY (jam_mulai = ?) DESC, id ASC` untuk ekskul (baris 218),
+  dan `commit()` sebelum panggilan FCM (baris 322). Batasan unik di basis
+  data belum dipasang; lihat `CLAUDE.md` classync.
+- ~~`guru_id` mentah di nama berkas~~ — commit `caa1fcf`. Di-cast `(int)` di
+  titik masuk keempat endpoint unggah.
+- ~~Regresi GIF~~ — commit `e81f6f9`. Keempat daftar putih kini memuat
+  `IMAGETYPE_GIF`, sesuai yang diterima `absen_bk.tsx`.
+- ~~Penghapusan berkas arbitrer di `update_profil_guru.php`~~ — commit
+  `188c705`. `foto_lama` kiriman diabaikan; foto lama dibaca dari basis data
+  (baris 59) dan dihapus hanya kalau `realpath()`-nya ada di dalam `uploads/`
+  (baris 123-128).
+- ~~Unggahan foto tanpa daftar putih ekstensi~~ — commit `6c77656`. Ekstensi
+  diambil dari tipe yang terdeteksi `getimagesize()` (`$info[2]`), bukan dari
+  nama kiriman, di keempat endpoint: `update_profil_guru.php:108`,
+  `proses_absen_sederhana.php:79`, `proses_absen_bk.php:71`,
+  `proses_absen_mengajar.php:62`.
+- ~~`display_errors` menyala~~ — commit `6542b62`. Tidak ada lagi berkas yang
+  menyetelnya ke `1`; 45 berkas memakai `'0'`, delapan lainnya `0`.
+  `error_reporting(E_ALL)` sengaja dibiarkan supaya pencatatan ke log tetap
+  jalan.
+- ~~SQL injection di `get_monitoring_absensi.php`~~ — commit `e6a567f`.
+  Kedua kueri berparameter memakai prepared statement (baris 58-62 dan
+  95-99), dan galatnya ke `error_log`, bukan ke pemanggil. Sapuan ulang
+  terbatas: semua `->query()` yang menyisipkan variabel di repo ini hanya
+  menyisipkan nilai yang sudah di-cast `(int)`. Kueri yang dirakit lalu
+  di-`prepare()` tidak ikut disapu.
+- ~~Password basis data tertulis di `includes/db.php`~~ — commit `e625537`.
+  Dibaca dari `/DATA/k1807225/config/db-classync.php` dengan pola
+  `is_readable()` lebih dulu. Password lama tetap permanen di riwayat Git;
+  penggantian penggunanya (September 2026) tercatat di `CLAUDE.md` classync
+  dan tidak bisa diverifikasi dari kode.
 
 ## `classync-backend/` akan dicabut
 
