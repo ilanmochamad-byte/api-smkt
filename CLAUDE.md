@@ -80,9 +80,6 @@ kehilangan HP, dan tidak ada secret tambahan yang bisa bocor.
 - **Kritis** — tidak ada autentikasi (lihat di atas). Endpoint paling terdampak:
   `get_profil_guru.php:9` (mengembalikan kolom `password`), `get_honor.php:5`,
   `post_nilai.php:42`, `proses_action_piket.php:18`, `save_token.php:16`.
-- **Kritis** — `proxy.php` baris 26 dan 49 menulis body mentah setiap permintaan
-  ke `proxy-log.txt`, termasuk NIP dan password saat login. Baris 33-38
-  meneruskan permintaan tanpa daftar putih, berfungsi sebagai open relay.
 - **Kritis** — unggahan foto tanpa daftar putih ekstensi di
   `update_profil_guru.php:96`, `proses_absen_sederhana.php:65`,
   `proses_absen_bk.php:55`.
@@ -94,6 +91,27 @@ kehilangan HP, dan tidak ada secret tambahan yang bisa bocor.
 - **Sedang** — `login.php` tanpa pembatasan percobaan.
 - **Sedang** — 56 dari 73 berkas membuka koneksi database sendiri padahal
   `includes/db.php` sudah menyediakan `$conn`.
+
+## Temuan audit yang sudah ditutup
+
+- ~~`proxy.php` mencatat password dan meneruskan tanpa saringan~~ — commit
+  `a6822aa`. Ia meneruskan permintaan apa pun ke domain API sendiri dengan
+  CORS `*`, tanpa daftar putih endpoint, dan menulis body mentah setiap
+  permintaan ke `proxy-log.txt` — termasuk NIP dan password saat login. Dua
+  halaman diagnostik ikut dihapus: `cek_config.php` dan `cek_path.php`, yang
+  menampilkan jalur direktori server dan status berkas konfigurasi ke siapa
+  pun. Tidak ada pemanggil di ketiga repo, juga tidak di seluruh riwayat Git
+  ClassyncApp dan classync.
+
+  Log server sebelum dihapus: 189 panggilan pada 13 dan 24 September 2026,
+  semuanya `GET /proxy.php` atau `//proxy.php` tanpa endpoint tujuan, dan nol
+  baris `Data:` — pemindai, bukan klien. Log sebelum 13 September sudah
+  terhapus dan, sebelum blok `FilesMatch` dipasang hari itu, bisa diunduh
+  siapa pun. Apakah password pernah tercatat di sana **tidak terverifikasi**;
+  tidak ada versi aplikasi atau panel web yang pernah memanggil proxy.
+
+  Keempat berkas dihapus manual dari server 25 September 2026. Terverifikasi:
+  ketiga alamat menjawab 404, `login.php` tetap 400.
 
 ## `classync-backend/` akan dicabut
 
