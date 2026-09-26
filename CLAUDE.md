@@ -160,7 +160,13 @@ Migrasi dilakukan **empat fase**, dan tidak boleh dipadatkan:
      `get_riwayat_pengajuan`) sudah mengikat `bind_param("i")`, jadi cast
      di dalam fungsi tidak mengubah perilakunya. Uji: tiap endpoint dipanggil
      tanpa header dengan `guru_id` guru uji dan dengan token dengan
-     `guru_id=0`; kedua jawaban harus identik. **Belum di-deploy.**
+     `guru_id=0`; kedua jawaban harus identik. **`8416678`, teruji di
+     produksi 26 September 2026** untuk guru 9: sebelum deploy 21 dari 23
+     panggilan berbeda (uji terbukti membedakan), sesudah deploy 0 dari 23.
+     Jalur yang benar-benar mengembalikan baris data terlihat di antaranya
+     di `get_honor`, `get_notifikasi`, `get_profil_guru`, dan
+     `export_kehadiran_siswa`; beberapa endpoint memang kosong untuk guru
+     itu. Pemeriksaan layar di aplikasi yang beredar belum dilaporkan.
 
   **Inventaris** (26 September 2026, semua 70 berkas di akar dibaca):
 
@@ -263,6 +269,12 @@ sana, tidak disebut teruji.
   `proses_konseling_individu.php`, `proses_konseling_kelompok.php`. Siapa
   pun bisa menghapus jurnal atau notifikasi orang lain dengan menebak
   id-nya. Rencana: `AND guru_id = ?` bila token ada (inventaris K4).
+- **Sedang** — rekap absensi kelas di layar Ekspor tidak pernah jalan:
+  `get_rekap_absensi_kelas.php:40-41` menyaring `jm.semester` dan
+  `jm.tahun_ajaran`, kolom yang tidak ada di `jadwal_mengajar`. Setiap
+  panggilan menjawab 500 `Unknown column 'jm.semester' in 'WHERE'` —
+  terlihat di produksi 26 September 2026, sebelum maupun sesudah fase B.
+  Pesan galat mysqli itu dikirim mentah ke aplikasi (baris 63).
 - **Rendah** — tombol "tandai semua dibaca" rusak sejak ClassyncApp
   `7923553` (13 Juli 2026): `notifikasi.tsx:136` memanggil
   `tandai_baca_semua.php`, yang tidak ada di repo ini maupun di riwayat
