@@ -161,6 +161,11 @@ try {
         // guru_id siapa pun (lihat CLAUDE.md, fase B).
         if ($updated_guru) {
             unset($updated_guru['password'], $updated_guru['auth_token'], $updated_guru['push_token'], $updated_guru['expo_push_token']);
+            // Objek dari login.php memakai "nama", baris tabel memakai
+            // "nama_guru". Tanpa ini, layar yang membaca userData.nama
+            // (mis. PDF di riwayat_jurnal.tsx) mendapat undefined sampai
+            // guru login ulang.
+            $updated_guru['nama'] = $updated_guru['nama_guru'];
         }
 
         http_response_code(200); // OK
