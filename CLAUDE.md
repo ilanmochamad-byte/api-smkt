@@ -303,6 +303,28 @@ Migrasi dilakukan **empat fase**, dan tidak boleh dipadatkan:
   `post_comment`, `save_token`.
 - **Fase C** — rilis aplikasi v3.0 dengan `services/api.ts` terpusat dan
   interceptor yang menyisipkan header. Sekalian pasang `expo-updates`.
+
+  **Sedang berjalan** (ClassyncApp 3.0.0, belum dirilis). Keputusan 26
+  September 2026:
+  - v3.0 dibuat kecil: interceptor pada instance axios **bawaan** di
+    `services/autentikasi.ts`, dipasang sekali di `app/_layout.tsx`, plus
+    `headerAutentikasi()` di empat `fetch()`. `services/api.ts` terpusat
+    (40 berkas) ditunda ke OTA setelah 3.0 beredar — refaktor besar dalam
+    rilis tanpa OTA terlalu mahal kalau salah.
+  - Header `Authorization` hanya ke `https://api.smkt.alhasan.co.id/`; ikut
+    juga `X-Classync-Versi` (belum dibaca server — bahan untuk fase D bila
+    `catatan_autentikasi` diberi kolom versi).
+  - Guru yang login sebelum 3.0 **tidak** dipaksa login ulang di 3.0; mereka
+    tercatat `guru_id`. Paksaan sekali menyusul lewat OTA, diumumkan dulu.
+  - 401 dari selain `login.php` → hapus sesi, kembali ke login. Tidur
+    sampai fase D. Satu sesi per guru tetap berlaku.
+  - `expo-updates`: `runtimeVersion` policy `appVersion`, channel `preview`
+    dan `production`, periksa saat dibuka, terapkan di peluncuran berikutnya.
+
+  Tanda keberhasilan di `catatan_autentikasi` setelah build uji dipakai:
+  baris `token` untuk guru penguji di banyak endpoint, dan **nol**
+  `token_beda_guru_id` (itu berarti aplikasi mengirim `guru_id` yang bukan
+  pemilik token).
 - **Fase D** — baca catatan fase B, hubungi guru yang belum memperbarui, lalu
   tegakkan. Mulai dari 24 endpoint tulis dan dua endpoint tersensitif
   (`get_honor.php`, `get_buku_pribadi_bk.php`).
