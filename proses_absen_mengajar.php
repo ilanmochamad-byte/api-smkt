@@ -12,6 +12,7 @@ header("Access-Control-Allow-Headers: Content-Type, Access-Control-Allow-Headers
 
 // --- KONFIGURASI DATABASE ---
 require_once 'includes/db.php';
+require_once __DIR__ . '/includes/auth.php';
 require_once __DIR__ . '/includes/pesan_unggah.php';
 
 $conn = new mysqli($db_host, $db_user, $db_pass, $db_name);
@@ -23,7 +24,7 @@ if ($conn->connect_error) {
 
 try {
     // 1. Ambil Data Utama
-    $guru_id = (int)($_POST['guru_id'] ?? 0);
+    $guru_id = guru_id_pemanggil($conn, $_POST['guru_id'] ?? 0);
     $jadwal_id = $_POST['jadwal_id'] ?? 0;
     $absensi_siswa_json = $_POST['absensi_siswa'] ?? '[]';
     $absensi_siswa = json_decode($absensi_siswa_json, true);

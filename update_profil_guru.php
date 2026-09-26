@@ -16,6 +16,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'OPTIONS') {
 
 // --- INFORMASI DATABASE ANDA ---
 require_once 'includes/db.php';
+require_once __DIR__ . '/includes/auth.php';
 require_once __DIR__ . '/includes/pesan_unggah.php';
 // -----------------------------------------
 
@@ -31,7 +32,7 @@ try {
         throw new Exception("Koneksi database gagal: " . $conn->connect_error);
     }
 
-    $guru_id = (int)($_POST['guru_id'] ?? 0);
+    $guru_id = guru_id_pemanggil($conn, $_POST['guru_id'] ?? 0);
     if ($guru_id <= 0) { // Cek jika 0 atau kurang
         http_response_code(400); // Bad Request
         throw new Exception("Guru ID tidak valid.");

@@ -15,6 +15,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'OPTIONS') {
 }
 
 require_once 'includes/db.php';
+require_once __DIR__ . '/includes/auth.php';
 
 $conn = null;
 
@@ -26,7 +27,7 @@ try {
     }
 
     $absensi_id = isset($_POST['absensi_id']) ? (int)$_POST['absensi_id'] : 0;
-    $guru_id = isset($_POST['guru_id']) ? (int)$_POST['guru_id'] : 0;
+    $guru_id = guru_id_pemanggil($conn, $_POST['guru_id'] ?? 0);
 
     // --- PERBAIKAN 2: Validasi input ---
     if ($absensi_id === 0 || $guru_id === 0) {

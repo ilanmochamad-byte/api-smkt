@@ -15,6 +15,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'OPTIONS') {
 }
 
 require_once 'includes/db.php';
+require_once __DIR__ . '/includes/auth.php';
 require_once __DIR__ . '/includes/pesan_unggah.php';
 $base_upload_path_absolute = "/DATA/k1807225/public_html/smkt.alhasan.co.id/classync/"; 
 
@@ -27,7 +28,7 @@ $base_upload_path_absolute = "/DATA/k1807225/public_html/smkt.alhasan.co.id/clas
 // }
 
 try {
-    $guru_id = (int)($_POST['guru_id'] ?? 0);
+    $guru_id = guru_id_pemanggil($conn, $_POST['guru_id'] ?? 0);
     $latitude = $_POST['latitude'] ?? 0;
     $longitude = $_POST['longitude'] ?? 0;
 
