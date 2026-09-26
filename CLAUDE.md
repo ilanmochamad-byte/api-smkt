@@ -167,6 +167,20 @@ Migrasi dilakukan **empat fase**, dan tidak boleh dipadatkan:
      di `get_honor`, `get_notifikasi`, `get_profil_guru`, dan
      `export_kehadiran_siswa`; beberapa endpoint memang kosong untuk guru
      itu. Pemeriksaan layar di aplikasi yang beredar belum dilaporkan.
+  3. Gelombang 3 — enam endpoint K1 yang membaca `guru_id` lewat `$_POST`:
+     `handle_like`, `handle_dislike`, `proses_absen_bk` (memakai `$conn`
+     dari `includes/db.php`), `proses_absen_mengajar`,
+     `proses_absen_sederhana`, `update_profil_guru`. Semuanya menulis, jadi
+     uji A/B tidak dipakai. Gantinya **uji sonde**: token dan `guru_id=0`,
+     dibuat gagal di pemeriksaan sesudah identitas tapi sebelum ada yang
+     ditulis — `update_profil_guru` dengan `foto_profil` bukan gambar,
+     `proses_absen_sederhana` tanpa foto (`jadwal_id` 999999, `ekskul`),
+     `proses_absen_bk` tanpa foto. Sebelum deploy ketiganya ditolak karena
+     `guru_id` kosong; sesudahnya oleh pemeriksaan foto. Like dan dislike
+     (tanpa notifikasi) dibalik dua kali pada foto pertama galeri.
+     `proses_absen_mengajar` tidak memeriksa `guru_id` sama sekali, jadi
+     tidak punya titik gagal yang aman — hanya diuji lewat aplikasi.
+     `f9e363b`. **Belum di-deploy.**
 
   **Inventaris** (26 September 2026, semua 70 berkas di akar dibaca):
 
