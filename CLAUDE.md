@@ -213,6 +213,35 @@ Migrasi dilakukan **empat fase**, dan tidak boleh dipadatkan:
      Pada hari yang sama catatan sudah memuat pemanggilan `guru_id` dari
      guru lain (8, 12, 21), artinya aplikasi yang beredar jalan lewat jalur
      tanpa token.
+  5. Gelombang 5 — K2 dan K4, lewat fungsi kedua di `includes/auth.php`:
+     `guru_id_dari_token($conn)` mengembalikan pemilik token atau `null`,
+     tanpa jatuh ke `guru_id` kiriman (endpoint ini memang tidak
+     menerimanya). `cara` di catatan: `token`, `token_tidak_sah`, atau
+     `tanpa_token` (guru_id 0). Penghitungan fase D: semua selain `token`
+     berarti "tanpa identitas yang sah".
+     - `post_nilai`: dengan token semua butir ditulis atas nama pemilik
+       token; tanpa token `guru_id` per butir seperti sebelumnya.
+     - `delete_jurnal`, `hapus_notifikasi`, `tandai_baca`,
+       `get_detail_jurnal`: dengan token ditambah `AND guru_id = ?`. Milik
+       guru lain berperilaku seperti id yang tidak ada — 404 untuk kedua
+       penghapus, `{"data": null}` untuk detail, dan tetap "success" tanpa
+       perubahan untuk `tandai_baca` (yang memang selalu menjawab success).
+     - `proses_konseling_individu`/`_kelompok`: `jurnal_bk_id` sebenarnya
+       berisi `absensi.id` (`riwayat_jurnal.tsx:112` mengirim `item.id`
+       dari `get_riwayat_jurnal.php`, yaitu `a.id`). Dengan token, absensi
+       itu harus milik pemilik token; kalau tidak, 400 "Jurnal BK tidak
+       ditemukan."
+     Ini **penolakan pertama** di fase B, dan hanya untuk permintaan
+     bertoken yang menyentuh data guru lain — disetujui 26 September 2026.
+     Uji: `get_detail_jurnal` dengan token pada jurnal guru lain (hanya
+     membaca: sebelum deploy datanya ada, sesudahnya `null`); bila lolos,
+     baru langkah yang menulis — jurnal milik guru fiktif 999999 dibuat
+     lewat jalur lama, dihapus dengan token (harus 404 dan jurnal masih
+     ada), lalu dibersihkan tanpa token; konseling dengan `jurnal_bk_id`
+     2147483647 harus ditolak. `hapus_notifikasi`, `tandai_baca`, dan
+     jalur bertoken `post_nilai` tidak diuji langsung — tidak ada cara
+     membuat notifikasi atau nilai uji tanpa menyentuh data sungguhan;
+     polanya sama dengan `delete_jurnal`. `9dcaa22`. **Belum di-deploy.**
 
   **Inventaris** (26 September 2026, semua 70 berkas di akar dibaca):
 
