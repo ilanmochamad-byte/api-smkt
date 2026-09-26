@@ -132,17 +132,11 @@ sana, tidak disebut teruji.
   `post_nilai.php:46` mengambil `guru_id` dari tiap butir kiriman;
   `proses_action_piket.php:18` mengubah status piket siapa pun tanpa memeriksa
   apa-apa, termasuk bahwa barisnya masih `Pending`; `save_token.php:16`.
-  - **Wajib ditutup sebelum fase B.** `update_profil_guru.php:151` mengirim
-    `SELECT *` tabel `guru` sebagai `user` di respons sukses — termasuk hash
-    `password`, `push_token`, `expo_push_token`, dan sejak fase A
-    `auth_token` yang sedang berlaku. Siapa pun bisa memicunya dengan
-    `guru_id` orang lain, meski lewat penulisan profil. Selama belum ada
-    penegakan tidak ada kerugian tambahan — `guru_id` saja sudah cukup —
-    tapi di fase B pemakaian token curian tercatat sebagai pemanggil sah,
-    dan di fase D token itu membuka akses penuh. Sebelum membuang
-    field-nya, periksa dulu apakah `edit_profil.tsx` membaca `user` dari
-    respons itu. Padanannya di `get_profil_guru.php` sudah ditutup di
-    `c5e8d0a`.
+  - Syarat "tidak ada endpoint yang mengirim `auth_token`" sebelum fase B
+    sudah terpenuhi: `get_profil_guru.php` (`c5e8d0a`) dan
+    `update_profil_guru.php` (`e686dfd`) — satu-satunya yang mengirim
+    `SELECT *` tabel `guru`. Endpoint baru yang membaca tabel `guru` jangan
+    memakai `SELECT *`.
 - **Kritis** — endpoint absen aplikasi tidak memeriksa jadwal di sisi server.
   Ditemukan saat pemeriksaan ulang ini; terpisah dari butir autentikasi dan
   **tetap ada setelah token ditegakkan**, karena guru yang sah pun bisa
@@ -199,9 +193,32 @@ sana, tidak disebut teruji.
   mengganti `rand()` di `proses_absen_mengajar.php` — satu-satunya yang
   memakainya; klaim bahwa keempat endpoint kini memakai `random_bytes()`
   keliru.
+- **Rendah** — bentuk `user` dari `update_profil_guru.php` berbeda dengan
+  dari `login.php`, padahal keduanya disimpan ke SecureStore `userData`.
+  `edit_profil.tsx:116` menimpa `userData` dengan baris mentah tabel `guru`,
+  yang punya `nama_guru` tapi tidak punya `nama`. Akibatnya
+  `riwayat_jurnal.tsx:212` mencetak `undefined` sebagai nama guru di PDF
+  laporan jurnal sampai guru itu login ulang. Sudah ada sejak sebelum
+  `e686dfd`; ditemukan saat memeriksanya, belum diuji di perangkat.
+  Perbaikan yang kompatibel mundur: tambahkan `nama` (salinan `nama_guru`) ke
+  `user` di respons itu — menambah field tidak memecahkan versi mana pun.
 
 ### Sudah ditutup
 
+- ~~`update_profil_guru.php` mengirim kredensial dalam `user`~~ — commit
+  `e686dfd`. Respons sukses mengirim `SELECT *` tabel `guru` (baris 151),
+  termasuk hash `password`, `push_token`, `expo_push_token`, dan sejak
+  fase A `auth_token` yang sedang berlaku, ke siapa pun yang mengirim
+  `guru_id` orang lain. Keempatnya kini di-`unset` (baris 162-164); field
+  lain tidak berubah. `edit_profil.tsx:116` menyimpan `user` ini utuh ke
+  SecureStore `userData`, yang dibaca sekitar 15 layar dan `_layout.tsx`;
+  tidak satu pun versi dalam riwayat Git ClassyncApp membaca keempat field
+  itu dari objek mana pun, dan `userData` tidak pernah diteruskan utuh ke
+  permintaan lain. Teruji di produksi 26 September 2026 lewat aplikasi yang
+  beredar: simpan profil tanpa perubahan berhasil, aplikasi dibuka ulang
+  langsung ke dashboard, dan Mengajar, Riwayat, Absen Harian, serta Input
+  Nilai memuat data. Isi respons sendiri tidak diperiksa — tidak diuji
+  dengan curl karena endpoint ini menulis.
 - ~~`get_profil_guru.php` mengirim kredensial dalam `profil`~~ — commit
   `c5e8d0a`. `SELECT *` tabel `guru` dikirim utuh ke siapa pun yang menebak
   `guru_id`, termasuk hash `password`, `push_token`, `expo_push_token`, dan
