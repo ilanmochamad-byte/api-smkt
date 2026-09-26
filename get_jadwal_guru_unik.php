@@ -2,7 +2,8 @@
 header("Content-Type: application/json; charset=UTF-8");
 // include 'db.php'; // Asumsi Anda punya file koneksi database terpisah
 require_once 'includes/db.php';
-$guru_id = isset($_GET['guru_id']) ? (int)$_GET['guru_id'] : 0;
+require_once __DIR__ . '/includes/auth.php';
+$guru_id = guru_id_pemanggil($conn, $_GET['guru_id'] ?? 0);
 
 if ($guru_id === 0) {
     echo json_encode(['mapel' => [], 'kelas' => []]);

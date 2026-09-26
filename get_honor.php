@@ -1,8 +1,9 @@
 <?php
 require_once 'includes/db.php';
+require_once __DIR__ . '/includes/auth.php';
 require_once 'keuangan_helper.php';
 
-$guru_id = isset($_GET['guru_id']) ? (int)$_GET['guru_id'] : 0;
+$guru_id = guru_id_pemanggil($conn, $_GET['guru_id'] ?? 0);
 $filter_bulan = isset($_GET['bulan']) ? (int)$_GET['bulan'] : (int)date('m');
 $filter_tahun = isset($_GET['tahun']) ? (int)$_GET['tahun'] : (int)date('Y');
 

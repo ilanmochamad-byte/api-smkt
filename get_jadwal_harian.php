@@ -7,6 +7,7 @@ header("Content-Type: application/json; charset=UTF-8");
 header("Access-Control-Allow-Origin: *");
 
 require_once 'includes/db.php';
+require_once __DIR__ . '/includes/auth.php';
 
 $conn = null;
 
@@ -16,7 +17,7 @@ try {
         throw new Exception("Koneksi database gagal.");
     }
 
-    $guru_id = isset($_GET['guru_id']) ? (int)$_GET['guru_id'] : 0;
+    $guru_id = guru_id_pemanggil($conn, $_GET['guru_id'] ?? 0);
     if ($guru_id === 0) {
         http_response_code(400);
         throw new Exception("Parameter guru_id wajib diisi.");

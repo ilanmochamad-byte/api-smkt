@@ -4,9 +4,10 @@ ini_set('display_errors', '0'); error_reporting(E_ALL);
 header("Content-Type: application/json; charset=UTF-8"); header("Access-Control-Allow-Origin: *");
 
 require_once 'includes/db.php';
+require_once __DIR__ . '/includes/auth.php';
 $conn = new mysqli($db_host, $db_user, $db_pass, $db_name);
 
-$guru_id = $_GET['guru_id'] ?? 0;
+$guru_id = guru_id_pemanggil($conn, $_GET['guru_id'] ?? 0);
 $stmt = $conn->prepare("SELECT * FROM pengajuan_absensi WHERE guru_id = ? ORDER BY created_at DESC");
 $stmt->bind_param("i", $guru_id);
 $stmt->execute();

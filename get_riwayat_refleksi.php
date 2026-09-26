@@ -4,10 +4,11 @@ ini_set('display_errors', '0'); error_reporting(E_ALL);
 header("Content-Type: application/json; charset=UTF-8"); header("Access-Control-Allow-Origin: *");
 
 require_once 'includes/db.php';
+require_once __DIR__ . '/includes/auth.php';
 $conn = new mysqli($db_host, $db_user, $db_pass, $db_name);
 
 try {
-    $guru_id = isset($_GET['guru_id']) ? (int)$_GET['guru_id'] : 0;
+    $guru_id = guru_id_pemanggil($conn, $_GET['guru_id'] ?? 0);
     if ($guru_id === 0) throw new Exception("Guru ID diperlukan.");
 
     // Ambil nama guru juga untuk keperluan kop surat PDF

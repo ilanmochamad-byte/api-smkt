@@ -9,6 +9,7 @@ header("Content-Type: application/json; charset=UTF-8");
 header("Access-Control-Allow-Origin: *");
 
 require_once 'includes/db.php';
+require_once __DIR__ . '/includes/auth.php';
 
 try {
     $conn = new mysqli($db_host, $db_user, $db_pass, $db_name);
@@ -17,7 +18,7 @@ try {
     }
 
     // 1. Ambil Parameter Filter dari Frontend
-    $guru_id = $_GET['guru_id'] ?? 0;
+    $guru_id = guru_id_pemanggil($conn, $_GET['guru_id'] ?? 0);
     
     // Default ke bulan & tahun saat ini jika tidak dikirim
     $bulan   = $_GET['bulan'] ?? date('n'); 

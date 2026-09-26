@@ -7,11 +7,12 @@ header("Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-W
 
 if ($_SERVER['REQUEST_METHOD'] == 'OPTIONS') { http_response_code(200); exit(); }
 require_once 'includes/db.php';
+require_once __DIR__ . '/includes/auth.php';
 
 $conn = new mysqli($db_host, $db_user, $db_pass, $db_name);
 
 try {
-    $guru_id = $_GET['guru_id'] ?? 0;
+    $guru_id = guru_id_pemanggil($conn, $_GET['guru_id'] ?? 0);
     $bulan = $_GET['bulan'] ?? 0;
     $tahun = $_GET['tahun'] ?? 0;
 

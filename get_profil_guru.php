@@ -2,11 +2,12 @@
 header("Content-Type: application/json; charset=UTF-8");
 // (Sertakan koneksi database Anda seperti di file API lainnya)
 require_once 'includes/db.php';
+require_once __DIR__ . '/includes/auth.php';
 
 $conn = new mysqli($db_host, $db_user, $db_pass, $db_name);
 if ($conn->connect_error) { throw new Exception("Koneksi database gagal: " . $conn->connect_error); exit(); }
 
-$guru_id = isset($_GET['guru_id']) ? (int)$_GET['guru_id'] : 0;
+$guru_id = guru_id_pemanggil($conn, $_GET['guru_id'] ?? 0);
 if ($guru_id === 0) { echo json_encode(['data' => []]); exit(); }
 
 // 1. Ambil data utama guru

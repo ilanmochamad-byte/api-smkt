@@ -12,6 +12,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'OPTIONS') {
 
 // --- Database Connection Details ---
 require_once 'includes/db.php';
+require_once __DIR__ . '/includes/auth.php';
 // ------------------------------------
 
 $conn = null; // Initialize connection variable
@@ -26,7 +27,7 @@ try {
 
     // <-- HAPUS 'try {' YANG ADA DI SINI
     
-    $guru_id = isset($_GET['guru_id']) ? (int)$_GET['guru_id'] : 0;
+    $guru_id = guru_id_pemanggil($conn, $_GET['guru_id'] ?? 0);
     $mapel = isset($_GET['mata_pelajaran']) ? $_GET['mata_pelajaran'] : '';
     $bulan = isset($_GET['bulan']) ? (int)$_GET['bulan'] : 0;
     $tahun = isset($_GET['tahun']) ? (int)$_GET['tahun'] : 0;

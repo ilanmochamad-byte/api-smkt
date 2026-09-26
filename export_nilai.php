@@ -7,6 +7,7 @@ header("Content-Type: application/json; charset=UTF-8");
 header("Access-Control-Allow-Origin: *");
 
 require_once 'includes/db.php';
+require_once __DIR__ . '/includes/auth.php';
 
 $conn = new mysqli($db_host, $db_user, $db_pass, $db_name);
 if ($conn->connect_error) {
@@ -17,7 +18,7 @@ if ($conn->connect_error) {
 
 try {
     // Ambil filter dari GET request
-    $guru_id = isset($_GET['guru_id']) ? (int)$_GET['guru_id'] : 0;
+    $guru_id = guru_id_pemanggil($conn, $_GET['guru_id'] ?? 0);
     $mapel = isset($_GET['mata_pelajaran']) ? $_GET['mata_pelajaran'] : '';
     $semester = isset($_GET['semester']) ? $_GET['semester'] : '';
     $tahun_ajaran = isset($_GET['tahun_ajaran']) ? $_GET['tahun_ajaran'] : '';

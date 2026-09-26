@@ -5,6 +5,7 @@ ini_set('display_errors', '0'); error_reporting(E_ALL);
 
 // Database
 require_once 'includes/db.php';
+require_once __DIR__ . '/includes/auth.php';
 
 $conn = null;
 $response = [];
@@ -16,7 +17,7 @@ try {
     }
     $conn->set_charset("utf8mb4");
 
-    $guru_id = isset($_GET['guru_id']) ? (int)$_GET['guru_id'] : 0;
+    $guru_id = guru_id_pemanggil($conn, $_GET['guru_id'] ?? 0);
     if ($guru_id === 0) {
         throw new Exception("Guru ID tidak valid.");
     }

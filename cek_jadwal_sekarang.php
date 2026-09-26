@@ -8,6 +8,7 @@ header("Access-Control-Allow-Origin: *");
 
 // --- INFORMASI DATABASE ANDA ---
 require_once 'includes/db.php';
+require_once __DIR__ . '/includes/auth.php';
 // ----------------------------------------
 
 try {
@@ -24,7 +25,7 @@ try {
     }
 
     // Ambil parameter dari aplikasi
-    $guru_id = isset($_GET['guru_id']) ? (int)$_GET['guru_id'] : 0;
+    $guru_id = guru_id_pemanggil($conn, $_GET['guru_id'] ?? 0);
     $tipe = isset($_GET['tipe']) ? $_GET['tipe'] : 'mengajar';
 
     if ($guru_id === 0) {
