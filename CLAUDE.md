@@ -33,6 +33,12 @@ halaman HTML, sebelum PHP sempat jalan — baik dari laptop maupun dari cPanel
 Terminal. Selalu pakai `-A 'Mozilla/5.0'`. Uji dari Terminal Mac (zsh, ada
 `jq`); cPanel Terminal memakai bash dan tidak punya `jq`.
 
+Menguji dari aplikasi: dashboard membaca SecureStore `userData` hanya sekali
+saat tab dibuat (`dashboard.tsx:417-430`), jadi kembali dari layar lain
+menampilkan salinan lama di memori. Perubahan yang sampai ke `userData`
+baru terlihat setelah aplikasi **ditutup paksa lalu dibuka ulang**, atau di
+layar tumpukan yang membaca ulang setiap dibuka (mis. Buat Jurnal).
+
 ## Pustaka
 
 `vendor/` di sini **composer murni** — 9 dari 9 paket tercatat di
@@ -193,17 +199,22 @@ sana, tidak disebut teruji.
   mengganti `rand()` di `proses_absen_mengajar.php` — satu-satunya yang
   memakainya; klaim bahwa keempat endpoint kini memakai `random_bytes()`
   keliru.
-- **Rendah** — bentuk `user` dari `update_profil_guru.php` berbeda dengan
-  dari `login.php`, padahal keduanya disimpan ke SecureStore `userData`.
-  `edit_profil.tsx:116` menimpa `userData` dengan baris mentah tabel `guru`,
-  yang punya `nama_guru` tapi tidak punya `nama`. Akibatnya
-  `riwayat_jurnal.tsx:212` mencetak `undefined` sebagai nama guru di PDF
-  laporan jurnal sampai guru itu login ulang. Sudah ada sejak sebelum
-  `e686dfd`; ditemukan saat memeriksanya, belum diuji di perangkat.
-  Perbaikan yang kompatibel mundur: tambahkan `nama` (salinan `nama_guru`) ke
-  `user` di respons itu — menambah field tidak memecahkan versi mana pun.
 
 ### Sudah ditutup
+
+- ~~`user` dari `update_profil_guru.php` tanpa `nama`~~ — commit `773e0a8`.
+  `edit_profil.tsx:116` menimpa SecureStore `userData` dengan baris tabel
+  `guru`, yang punya `nama_guru` tapi tidak punya `nama` seperti objek dari
+  `login.php`. Delapan layar membaca `userData.nama`: sapaan dashboard dan
+  `ProfileCard` kosong, kolom nama di Buat Jurnal kosong, dan PDF riwayat
+  jurnal, penilaian, ekspor, serta export laporan mencetak `undefined` atau
+  "Guru" — sampai guru login ulang. Semuanya tampilan; tidak ada yang
+  mengirim `nama` ke server. `nama` kini salinan `nama_guru` (baris 165-169).
+  Teruji di produksi 26 September 2026: setelah simpan profil dan aplikasi
+  ditutup paksa lalu dibuka ulang, sapaan dashboard menampilkan nama dan
+  kolom nama di Buat Jurnal terisi. `AsyncStorage 'nama_guru'` dari login
+  tetap tidak diperbarui setelah simpan profil; itu perlu perubahan
+  aplikasi.
 
 - ~~`update_profil_guru.php` mengirim kredensial dalam `user`~~ — commit
   `e686dfd`. Respons sukses mengirim `SELECT *` tabel `guru` (baris 151),
