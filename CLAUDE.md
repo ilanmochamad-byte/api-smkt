@@ -54,11 +54,12 @@ dimasukkan manual dan `composer install` justru akan merusaknya.)
 
 ## Tugas terbesar yang direncanakan: autentikasi
 
-**Saat ini API ini tidak punya autentikasi sama sekali.** Sejak `1b9b068`
-`login.php` menerbitkan token (fase A), tapi belum ada endpoint yang
-membacanya. 32 endpoint mengidentifikasi pemanggil semata dari parameter
-`guru_id` yang dikirim klien — siapa pun yang mengganti angka itu bisa membaca
-dan menulis data guru mana pun.
+**Saat ini API ini belum menegakkan autentikasi.** Sejak `1b9b068`
+`login.php` menerbitkan token (fase A), dan fase B sedang berjalan. 38
+endpoint mengidentifikasi pemanggil semata dari `guru_id` kiriman klien —
+siapa pun yang mengganti angka itu bisa membaca dan menulis data guru mana
+pun. 15 lainnya menyentuh data guru tanpa identitas pemanggil sama sekali
+(lihat inventaris di fase B).
 
 Polanya diambil dari `classync/api/login_guru.php`, yang membuat
 `bin2hex(random_bytes(32))` dan menyimpannya ke `guru.auth_token`. Berkas itu
@@ -102,11 +103,101 @@ Migrasi dilakukan **empat fase**, dan tidak boleh dipadatkan:
     dicari dulu. Hasil 26 September 2026 pukul 07.33, sebelum deploy: **0**
     — tidak ada penulis lain; sejak itu `login.php` satu-satunya sumber
     token.
-- **Fase B** — satu berkas `auth.php` membaca header `Authorization`,
-  mencocokkan ke `auth_token`, menyediakan `$auth_guru_id`. Di 32 endpoint,
-  satu baris: pakai identitas dari token bila ada, kalau tidak jatuhkan ke
-  `guru_id` lama **sambil dicatat**. Saat token ada, `guru_id` dari klien
-  diabaikan sepenuhnya.
+  - Sejak `983ee19` kolom `auth_token` menyimpan `hash('sha256', token)`,
+    bukan token mentah — isi tabel yang bocor (phpMyAdmin, cadangan, dump
+    `.sql`) tidak bisa dipakai sebagai token. Diubah sebelum fase C karena
+    saat itu belum ada klien yang memakai token.
+- **Fase B** — `includes/auth.php` membaca header `Authorization`,
+  mencocokkan ke `auth_token`, dan di setiap endpoint satu baris: pakai
+  identitas dari token bila ada, kalau tidak jatuhkan ke `guru_id` lama
+  **sambil dicatat**. Saat token ada, `guru_id` dari klien diabaikan
+  sepenuhnya.
+
+  **Sedang berjalan.** Keputusan 26 September 2026:
+  - `guru_id_pemanggil($conn, $guru_id_kiriman)` di `includes/auth.php`
+    (bukan di akar, supaya tidak menjadi endpoint). Pemakaian di endpoint:
+    `$guru_id = guru_id_pemanggil($conn, $_GET['guru_id'] ?? 0);` — sumber
+    kirimannya berbeda-beda (`$_GET`, `$_POST`, `$data[...]`, `$data->...`),
+    jadi "satu baris" berarti satu panggilan fungsi, bukan baris yang sama.
+    Kirimannya di-cast `(int)` di dalam fungsi.
+  - Token yang dikirim tapi tidak cocok **tidak ditolak**: jatuh ke
+    `guru_id` kiriman. Kasus sahnya setelah fase C: HP yang tokennya
+    ditimpa login di HP lain.
+  - Dicatat di tabel `catatan_autentikasi`, dijumlah per `(tanggal,
+    endpoint, cara, guru_id)`. `cara`: `token`, `guru_id` (tanpa header),
+    `token_tidak_sah`, `token_beda_guru_id` (token sah tapi `guru_id`
+    kiriman lain — tanda bug aplikasi atau coba-coba). Tanggal dari PHP
+    (Asia/Jakarta), bukan `CURDATE()`. Gagal mencatat tidak menggagalkan
+    permintaan. Tabel dibuat manual di phpMyAdmin:
+    ```sql
+    CREATE TABLE catatan_autentikasi (
+      tanggal  DATE         NOT NULL,
+      endpoint VARCHAR(64)  NOT NULL,
+      cara     VARCHAR(20)  NOT NULL,
+      guru_id  INT          NOT NULL,
+      jumlah   INT UNSIGNED NOT NULL DEFAULT 0,
+      pertama  DATETIME     NOT NULL,
+      terakhir DATETIME     NOT NULL,
+      PRIMARY KEY (tanggal, endpoint, cara, guru_id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    ```
+  - Diluncurkan bergelombang; tiap gelombang di-deploy dan diuji sebelum
+    lanjut.
+
+  Gelombang:
+  1. `983ee19` — `includes/auth.php`, hash token di `login.php`, dan
+     `get_unread_count.php` (dipanggil setiap dashboard dibuka; sekaligus
+     membuktikan LiteSpeed meneruskan header `Authorization`). **Belum
+     di-deploy.**
+
+  **Inventaris** (26 September 2026, semua 70 berkas di akar dibaca):
+
+  - **K1 — `guru_id` = pemanggil (37), sasaran pola fase B.** Lewat
+    `$_GET`: `cek_jadwal_sekarang`, lima `export_*` (`kehadiran_guru`,
+    `kehadiran_siswa`, `nilai`, `penilaian_siswa`, `rekap_absen_harian`),
+    `get_gallery` (hanya untuk tanda like; 0 diterima), `get_honor`,
+    `get_jadwal_guru_unik`, `get_jadwal_harian`, `get_jurnal_harian`,
+    `get_mapel_guru`, `get_notifikasi`, `get_profil_guru`,
+    `get_progress_mengajar`, `get_rekap_absensi_kelas`,
+    `get_rekap_penilaian_kelas`, `get_riwayat_absensi`,
+    `get_riwayat_jurnal`, `get_riwayat_pengajuan`, `get_riwayat_refleksi`,
+    `get_status_absensi_harian`, `get_unread_count`. Lewat `$_POST`:
+    `handle_like`, `handle_dislike`, `proses_absen_bk`,
+    `proses_absen_mengajar`, `proses_absen_sederhana`,
+    `update_profil_guru`. Lewat body JSON: `ajukan_absensi`,
+    `proses_absen_harian`, `proses_absen_hp` (guru = petugas pencatat),
+    `simpan_jurnal` (`$data->guru_id`), `simpan_push_token`,
+    `simpan_refleksi`, `update_jurnal`, `save_token`.
+    `ajukan_absensi`, `simpan_jurnal`, dan `save_token` membaca `guru_id`
+    dua kali (validasi lalu bind) — ganti keduanya dengan satu variabel.
+  - **K2 — `guru_id` per butir (1):** `post_nilai.php:46`, di dalam
+    `foreach`. Tiap butir ditimpa dengan identitas pemanggil.
+  - **K3 — bertindak atas guru lain (9), butuh pemeriksaan peran, bukan
+    pola fase B:** `admin_notifikasi`, `proses_approval_absensi`,
+    `proses_action_piket`, `proses_approval`, `get_approval_absen`,
+    `get_approval_piket`, `get_pengajuan_pending`, `get_laporan_honor`,
+    `get_riwayat_absen_harian`. Tidak satu pun menerima identitas
+    pemanggil; pembatasannya hanya di menu aplikasi (`restrictedNip` di
+    `constants/menuGuru.js`). Baru bisa dikunci setelah token ditegakkan.
+  - **K4 — mengubah/membaca data orang lewat id rekaman (6), tanpa
+    pemeriksaan pemilik:** `delete_jurnal` (`jurnal_id`),
+    `hapus_notifikasi` dan `tandai_baca` (`notifikasi_id`),
+    `get_detail_jurnal` (`jurnal_id`), `proses_konseling_individu` dan
+    `proses_konseling_kelompok` (`jurnal_bk_id`, isinya `absensi.id`).
+    Aplikasi tidak mengirim `guru_id` ke keenamnya, jadi di fase B cukup
+    tambahkan `AND guru_id = ?` **hanya bila token ada**.
+  - **K5 — tidak terkait identitas (17):** `login`, `send_fcm_api`,
+    `kirim_notifikasi_harian`, `keuangan_helper`, `generate_modul_ajar`,
+    `post_comment` (stub), `get_comments`, `get_schedules`, `get_siswa`,
+    `get_siswa_by_kelas`, `get_absen_hp`, `get_monitoring_absensi`,
+    `export_rekap_absen_hp`, `export_rekap_bulanan_siswa`,
+    `get_detail_absensi_siswa`, `get_riwayat_penilaian`,
+    `get_buku_pribadi_bk` (data siswa; butuh pemeriksaan peran BK yang kini
+    hanya di klien).
+
+  Tanpa pemanggil di ClassyncApp (HEAD maupun riwayat): `admin_notifikasi`,
+  `generate_modul_ajar`, `get_comments`, `get_jadwal_harian`,
+  `post_comment`, `save_token`.
 - **Fase C** — rilis aplikasi v3.0 dengan `services/api.ts` terpusat dan
   interceptor yang menyisipkan header. Sekalian pasang `expo-updates`.
 - **Fase D** — baca catatan fase B, hubungi guru yang belum memperbarui, lalu
@@ -129,10 +220,10 @@ sana, tidak disebut teruji.
 
 ### Masih terbuka
 
-- **Kritis** — tidak ada autentikasi (lihat di atas). Belum ada satu berkas pun
-  yang membaca header `Authorization` atau kolom `auth_token`; `login.php`
-  menerbitkan token sejak `1b9b068` (fase A, di produksi 26 September 2026). Endpoint
-  paling terdampak:
+- **Kritis** — autentikasi belum ditegakkan (lihat di atas). `login.php`
+  menerbitkan token sejak `1b9b068` (fase A, di produksi 26 September 2026);
+  `includes/auth.php` membacanya sejak `983ee19` (fase B, bergelombang).
+  Endpoint paling terdampak:
   `get_profil_guru.php:13` mengirim data profil guru mana pun;
   `get_honor.php:5`;
   `post_nilai.php:46` mengambil `guru_id` dari tiap butir kiriman;
@@ -143,6 +234,27 @@ sana, tidak disebut teruji.
     `update_profil_guru.php` (`e686dfd`) — satu-satunya yang mengirim
     `SELECT *` tabel `guru`. Endpoint baru yang membaca tabel `guru` jangan
     memakai `SELECT *`.
+- **Kritis** — honor dan uang transport **seluruh guru** terbuka ke siapa
+  pun, tanpa parameter identitas apa pun. `get_laporan_honor.php` mengulang
+  semua baris `guru` (baris 12) dan memanggil `hitungHonorBulan()` untuk
+  masing-masing; `get_riwayat_absen_harian.php:26-29` mengirim jam masuk,
+  jam pulang, dan `bonus` semua guru per bulan. Lebih parah daripada
+  `get_honor.php`, karena tidak perlu menebak `guru_id`. Pemanggilnya layar
+  kepala sekolah (`laporan_honor.tsx`, `riwayat_absen_admin.tsx`), yang
+  tidak mengirim identitas; pembatasan hanya di menu aplikasi. Baru bisa
+  dikunci setelah token ditegakkan — masuk gelombang pertama fase D.
+  Terverifikasi dari kode; endpoint-nya sengaja tidak dipanggil untuk uji.
+- **Sedang** — enam endpoint mengubah atau membaca data milik guru lewat id
+  rekaman tanpa memeriksa pemiliknya: `delete_jurnal.php`,
+  `hapus_notifikasi.php` (versi berpemeriksa dikomentari di baris 37-40),
+  `tandai_baca.php`, `get_detail_jurnal.php`,
+  `proses_konseling_individu.php`, `proses_konseling_kelompok.php`. Siapa
+  pun bisa menghapus jurnal atau notifikasi orang lain dengan menebak
+  id-nya. Rencana: `AND guru_id = ?` bila token ada (inventaris K4).
+- **Rendah** — tombol "tandai semua dibaca" rusak sejak ClassyncApp
+  `7923553` (13 Juli 2026): `notifikasi.tsx:136` memanggil
+  `tandai_baca_semua.php`, yang tidak ada di repo ini maupun di riwayat
+  Git-nya. Produksi menjawab 404 (26 September 2026).
 - **Kritis** — endpoint absen aplikasi tidak memeriksa jadwal di sisi server.
   Ditemukan saat pemeriksaan ulang ini; terpisah dari butir autentikasi dan
   **tetap ada setelah token ditegakkan**, karena guru yang sah pun bisa
