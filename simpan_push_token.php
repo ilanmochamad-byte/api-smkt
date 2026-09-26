@@ -12,6 +12,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'OPTIONS') {
 }
 
 require_once 'includes/db.php';
+require_once __DIR__ . '/includes/auth.php';
 
 $conn = null;
 
@@ -24,7 +25,7 @@ try {
     $json = file_get_contents('php://input');
     $data = json_decode($json, true);
 
-    $guru_id = isset($data['guru_id']) ? (int)$data['guru_id'] : 0;
+    $guru_id = guru_id_pemanggil($conn, $data['guru_id'] ?? 0);
     $push_token = isset($data['push_token']) ? $data['push_token'] : '';
 
     if ($guru_id === 0 || empty($push_token)) {

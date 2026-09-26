@@ -8,6 +8,7 @@ header("Access-Control-Allow-Origin: *");
 
 // --- INFORMASI DATABASE ANDA ---
 require_once 'includes/db.php';
+require_once __DIR__ . '/includes/auth.php';
 // -----------------------------------------
 
 $conn = null;
@@ -21,9 +22,10 @@ try {
     // Ambil data JSON dari aplikasi
     $json_data = file_get_contents("php://input");
     $data = json_decode($json_data);
+    $guru_id = guru_id_pemanggil($conn, $data->guru_id ?? 0);
 
     // Validasi data
-    if (empty($data->guru_id) || empty($data->mata_pelajaran) || empty($data->kelas) || empty($data->tanggal)) {
+    if (empty($guru_id) || empty($data->mata_pelajaran) || empty($data->kelas) || empty($data->tanggal)) {
         throw new Exception("Data wajib (guru_id, mata_pelajaran, kelas, tanggal) tidak boleh kosong.");
     }
 
@@ -33,7 +35,7 @@ try {
     }
     
     $stmt->bind_param("issssssss",
-        $data->guru_id,
+        $guru_id,
         $data->mata_pelajaran,
         $data->kelas,
         $data->semester,

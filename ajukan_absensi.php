@@ -6,19 +6,21 @@ header("Access-Control-Allow-Methods: POST, OPTIONS"); header("Access-Control-Al
 
 if ($_SERVER['REQUEST_METHOD'] == 'OPTIONS') { http_response_code(200); exit(); }
 require_once 'includes/db.php';
+require_once __DIR__ . '/includes/auth.php';
 
 $conn = new mysqli($db_host, $db_user, $db_pass, $db_name);
 
 try {
     $json = file_get_contents('php://input');
     $data = json_decode($json, true);
+    $guru_id = guru_id_pemanggil($conn, $data['guru_id'] ?? 0);
 
-    if (empty($data['guru_id']) || empty($data['jenis']) || empty($data['tanggal'])) {
+    if (empty($guru_id) || empty($data['jenis']) || empty($data['tanggal'])) {
         throw new Exception("Data tidak lengkap.");
     }
 
     $stmt = $conn->prepare("INSERT INTO pengajuan_absensi (guru_id, jenis_absensi, tanggal, jam_mulai, jam_selesai, keterangan) VALUES (?, ?, ?, ?, ?, ?)");
-    $stmt->bind_param("isssss", $data['guru_id'], $data['jenis'], $data['tanggal'], $data['jam_mulai'], $data['jam_selesai'], $data['keterangan']);
+    $stmt->bind_param("isssss", $guru_id, $data['jenis'], $data['tanggal'], $data['jam_mulai'], $data['jam_selesai'], $data['keterangan']);
     
     if ($stmt->execute()) {
         echo json_encode(['status' => 'success', 'message' => 'Pengajuan berhasil dikirim. Menunggu persetujuan Admin.']);

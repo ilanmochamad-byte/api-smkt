@@ -7,13 +7,14 @@ header("Access-Control-Allow-Methods: POST, OPTIONS"); header("Access-Control-Al
 if ($_SERVER['REQUEST_METHOD'] == 'OPTIONS') { http_response_code(200); exit(); }
 
 require_once 'includes/db.php';
+require_once __DIR__ . '/includes/auth.php';
 $conn = new mysqli($db_host, $db_user, $db_pass, $db_name);
 
 try {
     $json = file_get_contents('php://input');
     $data = json_decode($json, true);
 
-    $guru_id = $data['guru_id'] ?? 0;
+    $guru_id = guru_id_pemanggil($conn, $data['guru_id'] ?? 0);
     $tanggal = $data['tanggal'] ?? date('Y-m-d');
     $mapel = $data['mata_pelajaran'] ?? '';
 

@@ -20,6 +20,7 @@ define('SCHOOL_LONGITUDE', 108.3618642337998);
 define('ALLOWED_RADIUS_METERS', 100); 
 
 require_once 'includes/db.php';
+require_once __DIR__ . '/includes/auth.php';
 
 $conn = null;
 
@@ -43,7 +44,7 @@ try {
     $json = file_get_contents('php://input');
     $data = json_decode($json, true);
 
-    $guru_id = $data['guru_id'] ?? 0;
+    $guru_id = guru_id_pemanggil($conn, $data['guru_id'] ?? 0);
     $latitude = $data['latitude'] ?? null;
     $longitude = $data['longitude'] ?? null;
 

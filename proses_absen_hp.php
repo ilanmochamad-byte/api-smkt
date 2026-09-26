@@ -14,6 +14,7 @@ header("Access-Control-Allow-Headers: Content-Type");
 if ($_SERVER['REQUEST_METHOD'] == 'OPTIONS') { http_response_code(200); exit(); }
 
 require_once 'includes/db.php';
+require_once __DIR__ . '/includes/auth.php';
 
 $conn = new mysqli($db_host, $db_user, $db_pass, $db_name);
 
@@ -28,7 +29,7 @@ try {
     $data = json_decode($json, true);
 
     $nisn = $data['nisn'] ?? '';
-    $guru_id = $data['guru_id'] ?? 0;
+    $guru_id = guru_id_pemanggil($conn, $data['guru_id'] ?? 0);
     $tanggal_request = $data['tanggal'] ?? null; 
 
     if (empty($nisn) || empty($guru_id)) {

@@ -15,6 +15,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'OPTIONS') {
 
 // Database credentials
 require_once 'includes/db.php';
+require_once __DIR__ . '/includes/auth.php';
 
 $conn = null;
 
@@ -29,7 +30,7 @@ try {
 
     // Ambil semua data termasuk ID jurnal yang akan diupdate
     $jurnal_id = isset($data['id']) ? (int)$data['id'] : 0;
-    $guru_id = isset($data['guru_id']) ? (int)$data['guru_id'] : 0; // Sebaiknya sertakan untuk verifikasi
+    $guru_id = guru_id_pemanggil($conn, $data['guru_id'] ?? 0); // Sebaiknya sertakan untuk verifikasi
     $tanggal = isset($data['tanggal']) ? $data['tanggal'] : '';
     $mata_pelajaran = isset($data['mata_pelajaran']) ? $data['mata_pelajaran'] : '';
     $kelas = isset($data['kelas']) ? $data['kelas'] : '';
