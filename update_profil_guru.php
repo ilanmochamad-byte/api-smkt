@@ -155,6 +155,14 @@ try {
         $updated_guru = $result->fetch_assoc();
         $stmt_get->close();
 
+        // Aplikasi menyimpan "user" ini utuh ke SecureStore 'userData', jadi
+        // field lain dibiarkan apa adanya. Kredensial dibuang: tidak ada versi
+        // ClassyncApp yang membacanya, dan endpoint ini bisa dipicu dengan
+        // guru_id siapa pun (lihat CLAUDE.md, fase B).
+        if ($updated_guru) {
+            unset($updated_guru['password'], $updated_guru['auth_token'], $updated_guru['push_token'], $updated_guru['expo_push_token']);
+        }
+
         http_response_code(200); // OK
         echo json_encode(['status' => 'success', 'message' => 'Profil berhasil diperbarui.', 'user' => $updated_guru]);
     } else {
