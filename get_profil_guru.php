@@ -15,6 +15,14 @@ $stmt_guru->bind_param("i", $guru_id);
 $stmt_guru->execute();
 $guru = $stmt_guru->get_result()->fetch_assoc();
 
+// SELECT * ikut membawa kredensial. Tidak ada versi ClassyncApp yang membaca
+// keempatnya dari "profil"; auth_token di sini akan menjadi kunci akses
+// guru lain begitu autentikasi ditegakkan (lihat CLAUDE.md, fase B).
+// Field lain dibiarkan apa adanya supaya aplikasi lama tidak pecah.
+if ($guru) {
+    unset($guru['password'], $guru['auth_token'], $guru['push_token'], $guru['expo_push_token']);
+}
+
 // 2. Ambil semua jadwal (mengajar, piket, ekskul)
 $jadwal_mengajar = [];
 $result_mengajar = $conn->query("SELECT * FROM jadwal_mengajar WHERE guru_id = $guru_id AND status_jadwal = 'Aktif'");
