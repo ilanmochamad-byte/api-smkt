@@ -202,7 +202,17 @@ Migrasi dilakukan **empat fase**, dan tidak boleh dipadatkan:
      2147483647 (`UPDATE ... AND guru_id = ?` mengenai 0 baris → 404).
      Lima sisanya menggabungkan pemeriksaan `guru_id` dengan field lain,
      jadi melewatinya berarti menulis — diuji lewat aplikasi atau dipantau
-     dari `catatan_autentikasi`. `2aa774b`. **Belum di-deploy.**
+     dari `catatan_autentikasi`. `2aa774b`. **Teruji di produksi
+     26 September 2026:** sebelum deploy ketiga sonde ditolak karena
+     `guru_id` kosong; sesudahnya `proses_absen_harian` 403 "terlalu jauh",
+     `proses_absen_hp` 400 "hanya bisa dilakukan untuk hari ini",
+     `update_jurnal` 404 "tidak ditemukan". `simpan_push_token` tercatat
+     `guru_id` untuk guru 9 setelah aplikasi dibuka ulang. Baris
+     `simpan_jurnal` tidak terlihat di halaman pertama `catatan_autentikasi`
+     yang diperiksa (25 dari 71 baris) — belum terkonfirmasi dari catatan.
+     Pada hari yang sama catatan sudah memuat pemanggilan `guru_id` dari
+     guru lain (8, 12, 21), artinya aplikasi yang beredar jalan lewat jalur
+     tanpa token.
 
   **Inventaris** (26 September 2026, semua 70 berkas di akar dibaca):
 
