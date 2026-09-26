@@ -180,7 +180,14 @@ Migrasi dilakukan **empat fase**, dan tidak boleh dipadatkan:
      (tanpa notifikasi) dibalik dua kali pada foto pertama galeri.
      `proses_absen_mengajar` tidak memeriksa `guru_id` sama sekali, jadi
      tidak punya titik gagal yang aman — hanya diuji lewat aplikasi.
-     `f9e363b`. **Belum di-deploy.**
+     `f9e363b`. **Teruji di produksi 26 September 2026:** sebelum deploy
+     kelima sonde ditolak karena `guru_id` kosong; sesudahnya
+     `update_profil_guru` 500 "Foto profil harus berupa gambar…",
+     `proses_absen_sederhana` dan `proses_absen_bk` 400 "Foto bukti wajib
+     diupload.", like `liked → unliked` dan dislike `disliked →
+     undisliked` pada absensi 3916. Lewat aplikasi yang beredar (tanpa
+     token): absen mengajar tersimpan, like lalu batal di galeri dashboard,
+     dan simpan profil berhasil.
 
   **Inventaris** (26 September 2026, semua 70 berkas di akar dibaca):
 
