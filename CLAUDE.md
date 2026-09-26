@@ -43,21 +43,44 @@ dimasukkan manual dan `composer install` justru akan merusaknya.)
 
 ## Tugas terbesar yang direncanakan: autentikasi
 
-**Saat ini API ini tidak punya autentikasi sama sekali.** `login.php`
-memverifikasi password lalu mengembalikan objek user tanpa menerbitkan token.
-32 endpoint mengidentifikasi pemanggil semata dari parameter `guru_id` yang
-dikirim klien — siapa pun yang mengganti angka itu bisa membaca dan menulis
-data guru mana pun.
+**Saat ini API ini tidak punya autentikasi sama sekali.** Sejak `1b9b068`
+`login.php` menerbitkan token (fase A), tapi belum ada endpoint yang
+membacanya. 32 endpoint mengidentifikasi pemanggil semata dari parameter
+`guru_id` yang dikirim klien — siapa pun yang mengganti angka itu bisa membaca
+dan menulis data guru mana pun.
 
-Polanya sudah ada di kode proyek ini sendiri: `classync/api/login_guru.php`
-membuat `bin2hex(random_bytes(32))`, menyimpannya ke kolom `guru.auth_token`,
-dan `logout_guru.php` menghapusnya. Kolomnya sudah ada di tabel.
+Polanya diambil dari `classync/api/login_guru.php`, yang membuat
+`bin2hex(random_bytes(32))` dan menyimpannya ke `guru.auth_token`. Berkas itu
+sudah dihapus dari repo dan dipindah dari server di classync `ea7900f`
+(22 September 2026); isinya terbaca lewat `git show ea7900f^:api/login_guru.php`.
+`logout_guru.php` di akar classync hanya `session_destroy()` dan tidak pernah
+menyentuh `auth_token`. Kolomnya `varchar(255)` dengan indeks **UNIQUE** —
+terverifikasi di produksi lewat `SHOW INDEX` 25 September 2026.
 
 Migrasi dilakukan **empat fase**, dan tidak boleh dipadatkan:
 
 - **Fase A** — `login.php` menerbitkan token dan menyertakannya di respons.
   Endpoint lain belum berubah. Aplikasi lama mengabaikan field yang tidak
   dikenalnya, jadi tidak ada yang rusak.
+
+  **Ditulis di `1b9b068`, belum di-deploy dan belum teruji.** Keputusan yang
+  diambil 25 September 2026:
+  - `"token"` di tingkat atas respons, sejajar `message` dan `user`; objek
+    `user` tidak berubah. Satu-satunya pemanggil, `ClassyncApp/app/index.tsx`,
+    hanya membaca `response.data.user` dan `.message`.
+  - Satu sesi per guru: login di perangkat lain menimpa token sebelumnya.
+    Tidak mengunci apa pun — token opaque, jadi pindah ke tabel `guru_token`
+    untuk banyak perangkat tidak mengubah kontrak API. Putuskan sebelum
+    fase C, karena penanganan 401 di v3.0 bergantung padanya.
+  - Kalau token gagal disimpan, login tetap 200 tanpa `"token"` dan galatnya
+    ke `error_log`.
+  - **Token sisa.** Pada 25 September 2026, 11 dari 23 baris `guru` sudah
+    berisi `auth_token` — sisa `login_guru.php` lama, berformat sama persis
+    dengan token fase A dan akan sah begitu fase B jalan. Diputuskan:
+    `UPDATE guru SET auth_token = NULL`, lalu `SELECT COUNT(auth_token)`
+    diperiksa lagi keesokan harinya **sebelum** deploy. Kalau tidak 0, masih
+    ada penulis lain yang hidup (kandidat: `classync-backend/`) dan harus
+    dicari dulu.
 - **Fase B** — satu berkas `auth.php` membaca header `Authorization`,
   mencocokkan ke `auth_token`, menyediakan `$auth_guru_id`. Di 32 endpoint,
   satu baris: pakai identitas dari token bila ada, kalau tidak jatuhkan ke
@@ -86,13 +109,25 @@ sana, tidak disebut teruji.
 ### Masih terbuka
 
 - **Kritis** — tidak ada autentikasi (lihat di atas). Belum ada satu berkas pun
-  yang membaca header `Authorization` atau kolom `auth_token`, dan `login.php`
-  belum menerbitkan token — fase A belum dimulai. Endpoint paling terdampak:
+  yang membaca header `Authorization` atau kolom `auth_token`; `login.php`
+  menerbitkan token sejak `1b9b068` (fase A, belum di-deploy). Endpoint
+  paling terdampak:
   `get_profil_guru.php:13` mengirim `SELECT *` tabel `guru` utuh sebagai
   `profil`, termasuk hash `password` dan `push_token`; `get_honor.php:5`;
   `post_nilai.php:46` mengambil `guru_id` dari tiap butir kiriman;
   `proses_action_piket.php:18` mengubah status piket siapa pun tanpa memeriksa
   apa-apa, termasuk bahwa barisnya masih `Pending`; `save_token.php:16`.
+  - **Wajib ditutup sebelum fase B.** Sejak fase A, `SELECT *` itu juga
+    mengirim `auth_token` yang sedang berlaku: `get_profil_guru.php:13`
+    (sebagai `profil`, ke siapa pun yang menebak `guru_id`) dan
+    `update_profil_guru.php:151` (sebagai `user` di respons sukses). Selama
+    belum ada penegakan tidak ada kerugian tambahan — `guru_id` saja sudah
+    cukup — tapi di fase B pemakaian token curian tercatat sebagai
+    pemanggil sah, dan di fase D token itu membuka akses penuh. Keluarkan
+    `password`, `auth_token`, `push_token`, dan `expo_push_token` dari kedua
+    respons, setelah memeriksa field mana yang dibaca `mengajar.tsx`,
+    `(tabs)/todo.tsx`, `(tabs)/profil.tsx`, dan layar edit profil di
+    ClassyncApp.
 - **Kritis** — endpoint absen aplikasi tidak memeriksa jadwal di sisi server.
   Ditemukan saat pemeriksaan ulang ini; terpisah dari butir autentikasi dan
   **tetap ada setelah token ditegakkan**, karena guru yang sah pun bisa
@@ -124,8 +159,9 @@ sana, tidak disebut teruji.
 - **Sedang** — notifikasi iOS berjalan lewat penanganan sementara
   `includes/pengirim_apns.php` (`196f452`, `181d5d4`). Ia ditulis untuk
   dibuang setelah putusan A/B di aplikasi; rinciannya di `CLAUDE.md` classync.
-- **Sedang** — `login.php` tanpa pembatasan percobaan. Baris 18 juga
-  mengirim `connect_error` mentah ke pemanggil.
+- **Sedang** — `login.php` tanpa pembatasan percobaan. (`connect_error`
+  mentah di baris 18 lama hilang di `1b9b068` bersama koneksi keduanya;
+  `includes/db.php` menjawab dengan pesan generik.)
 - **Sedang** — 55 dari 70 berkas di akar membuka koneksi sendiri dengan
   `new mysqli`, padahal semuanya juga memuat `includes/db.php` yang sudah
   menyediakan `$conn` — dua koneksi per permintaan.
