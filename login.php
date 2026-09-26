@@ -51,10 +51,14 @@ if ($result->num_rows > 0) {
         // token perangkat sebelumnya.
         // Kalau token gagal disimpan, login tetap berhasil tanpa "token" —
         // belum ada endpoint yang mewajibkannya.
+        // Yang disimpan hanya hash SHA-256-nya, supaya isi tabel yang bocor
+        // (phpMyAdmin, cadangan, dump .sql) tidak bisa dipakai sebagai token.
+        // includes/auth.php meng-hash token kiriman dengan cara yang sama.
         try {
             $token = bin2hex(random_bytes(32));
+            $token_hash = hash('sha256', $token);
             $stmt_token = $conn->prepare("UPDATE guru SET auth_token = ? WHERE id = ?");
-            $stmt_token->bind_param("si", $token, $user['id']);
+            $stmt_token->bind_param("si", $token_hash, $user['id']);
             if (!$stmt_token->execute()) {
                 throw new Exception($stmt_token->error);
             }
