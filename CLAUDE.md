@@ -28,6 +28,11 @@ laptop  →  git push  →  GitHub  →  cPanel "Update from Remote"  →  "Depl
 **Penyalinan tidak pernah menghapus** — menghapus berkas dari repo tidak
 menghapusnya dari server; itu harus manual lewat File Manager cPanel.
 
+Menguji dengan `curl`: LiteSpeed menolak User-Agent bawaan curl dengan 403
+halaman HTML, sebelum PHP sempat jalan — baik dari laptop maupun dari cPanel
+Terminal. Selalu pakai `-A 'Mozilla/5.0'`. Uji dari Terminal Mac (zsh, ada
+`jq`); cPanel Terminal memakai bash dan tidak punya `jq`.
+
 ## Pustaka
 
 `vendor/` di sini **composer murni** — 9 dari 9 paket tercatat di
@@ -63,8 +68,16 @@ Migrasi dilakukan **empat fase**, dan tidak boleh dipadatkan:
   Endpoint lain belum berubah. Aplikasi lama mengabaikan field yang tidak
   dikenalnya, jadi tidak ada yang rusak.
 
-  **Ditulis di `1b9b068`, belum di-deploy dan belum teruji.** Keputusan yang
-  diambil 25 September 2026:
+  **Selesai — `1b9b068`, di-deploy dan teruji di produksi 26 September
+  2026.** `grep -c auth_token` di `login.php` server = 1. Login benar
+  menjawab 200 dengan `user` berfield sama seperti sebelumnya (`id`, `nama`,
+  `nip`, `foto_profil`, `is_bk`) plus `token` 64 hex di tingkat atas;
+  password salah 401 tanpa token. Setelah tiap login tepat satu baris
+  `guru` bertoken, dan awal tokennya berganti di setiap login (terlihat dua
+  kali pergantian di phpMyAdmin). Login dari ClassyncApp versi yang beredar
+  tetap normal.
+
+  Keputusan yang diambil 25 September 2026:
   - `"token"` di tingkat atas respons, sejajar `message` dan `user`; objek
     `user` tidak berubah. Satu-satunya pemanggil, `ClassyncApp/app/index.tsx`,
     hanya membaca `response.data.user` dan `.message`.
@@ -80,7 +93,9 @@ Migrasi dilakukan **empat fase**, dan tidak boleh dipadatkan:
     `UPDATE guru SET auth_token = NULL`, lalu `SELECT COUNT(auth_token)`
     diperiksa lagi keesokan harinya **sebelum** deploy. Kalau tidak 0, masih
     ada penulis lain yang hidup (kandidat: `classync-backend/`) dan harus
-    dicari dulu.
+    dicari dulu. Hasil 26 September 2026 pukul 07.33, sebelum deploy: **0**
+    — tidak ada penulis lain; sejak itu `login.php` satu-satunya sumber
+    token.
 - **Fase B** — satu berkas `auth.php` membaca header `Authorization`,
   mencocokkan ke `auth_token`, menyediakan `$auth_guru_id`. Di 32 endpoint,
   satu baris: pakai identitas dari token bila ada, kalau tidak jatuhkan ke
@@ -110,7 +125,7 @@ sana, tidak disebut teruji.
 
 - **Kritis** — tidak ada autentikasi (lihat di atas). Belum ada satu berkas pun
   yang membaca header `Authorization` atau kolom `auth_token`; `login.php`
-  menerbitkan token sejak `1b9b068` (fase A, belum di-deploy). Endpoint
+  menerbitkan token sejak `1b9b068` (fase A, di produksi 26 September 2026). Endpoint
   paling terdampak:
   `get_profil_guru.php:13` mengirim `SELECT *` tabel `guru` utuh sebagai
   `profil`, termasuk hash `password` dan `push_token`; `get_honor.php:5`;
