@@ -8,6 +8,7 @@ header("Access-Control-Allow-Origin: *");
 
 // --- INFORMASI DATABASE ANDA ---
 require_once 'includes/db.php';
+require_once __DIR__ . '/includes/auth.php';
 // -----------------------------------------
 
 $conn = null;
@@ -25,7 +26,15 @@ try {
     }
 
     // Query untuk mengambil semua data dari jurnal_harian dan nama guru
+    // Fase B (inventaris K4): dengan token, hanya jurnal milik pemilik token
+    // yang tersentuh; milik guru lain diperlakukan seperti id yang tidak ada.
+    // Tanpa token (aplikasi yang beredar) tetap seperti sebelumnya.
+    // Jurnal guru lain dijawab {"data": null}, sama seperti id yang tidak ada.
+    $guru_token = guru_id_dari_token($conn);
     $sql = "SELECT j.*, g.nama_guru FROM jurnal_harian j JOIN guru g ON j.guru_id = g.id WHERE j.id = ?";
+    if ($guru_token !== null) {
+        $sql .= " AND j.guru_id = ?";
+    }
     
     $stmt = $conn->prepare($sql);
     if (!$stmt) {
@@ -33,7 +42,11 @@ try {
         throw new Exception("SQL Prepare Error: " . $conn->error);
     }
     
-    $stmt->bind_param("i", $jurnal_id);
+    if ($guru_token === null) {
+        $stmt->bind_param("i", $jurnal_id);
+    } else {
+        $stmt->bind_param("ii", $jurnal_id, $guru_token);
+    }
     
     if (!$stmt->execute()) {
         throw new Exception("SQL Execute Error: " . $stmt->error);

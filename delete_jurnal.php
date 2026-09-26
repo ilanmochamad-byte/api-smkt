@@ -15,6 +15,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'OPTIONS') {
 
 // Database credentials
 require_once 'includes/db.php';
+require_once __DIR__ . '/includes/auth.php';
 $conn = null;
 
 try {
@@ -34,9 +35,17 @@ try {
         throw new Exception("Parameter jurnal_id wajib diisi.");
     }
 
-    $sql = "DELETE FROM jurnal_harian WHERE id = ?"; // Sesuaikan nama tabel jika berbeda
-    $stmt = $conn->prepare($sql);
-    $stmt->bind_param("i", $jurnal_id);
+    // Fase B (inventaris K4): dengan token, hanya jurnal milik pemilik token
+    // yang tersentuh; milik guru lain diperlakukan seperti id yang tidak ada.
+    // Tanpa token (aplikasi yang beredar) tetap seperti sebelumnya.
+    $guru_token = guru_id_dari_token($conn);
+    if ($guru_token === null) {
+        $stmt = $conn->prepare("DELETE FROM jurnal_harian WHERE id = ?");
+        $stmt->bind_param("i", $jurnal_id);
+    } else {
+        $stmt = $conn->prepare("DELETE FROM jurnal_harian WHERE id = ? AND guru_id = ?");
+        $stmt->bind_param("ii", $jurnal_id, $guru_token);
+    }
 
     if ($stmt->execute()) {
         if ($stmt->affected_rows > 0) {

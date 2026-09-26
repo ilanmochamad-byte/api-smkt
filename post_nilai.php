@@ -15,6 +15,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'OPTIONS') {
 
 // Ganti dengan informasi database Anda
 require_once 'includes/db.php';
+require_once __DIR__ . '/includes/auth.php';
 
 $conn = null;
 
@@ -39,11 +40,17 @@ try {
     $sql = "INSERT INTO penilaian_siswa (siswa_id, guru_id, mata_pelajaran, jenis_penilaian, nilai, keterangan, semester, tahun_ajaran, tanggal_penilaian) VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURDATE())";
     $stmt = $conn->prepare($sql);
 
+    // Fase B (inventaris K2): guru_id ada di tiap butir. Dengan token, semua
+    // butir ditulis atas nama pemilik token; tanpa token (aplikasi yang
+    // beredar) guru_id per butir dipakai seperti sebelumnya.
+    $guru_token = guru_id_dari_token($conn);
+
     foreach ($nilai_data as $nilai_item) {
+        $guru_id_butir = $guru_token ?? $nilai_item['guru_id'];
         $stmt->bind_param(
             "iissdsss",
             $nilai_item['siswa_id'],
-            $nilai_item['guru_id'],
+            $guru_id_butir,
             $nilai_item['mata_pelajaran'],
             $nilai_item['jenis_penilaian'],
             $nilai_item['nilai'],

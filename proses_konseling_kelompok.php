@@ -14,6 +14,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'OPTIONS') {
 }
 
 require_once 'includes/db.php';
+require_once __DIR__ . '/includes/auth.php';
 
 try {
     $conn = new mysqli($db_host, $db_user, $db_pass, $db_name);
@@ -22,6 +23,23 @@ try {
     $data = json_decode($json, true);
 
     $jurnal_bk_id = $data['jurnal_bk_id'] ?? 0;
+
+    // Fase B (inventaris K4): jurnal_bk_id berisi absensi.id —
+    // riwayat_jurnal.tsx mengirim item.id dari get_riwayat_jurnal.php. Dengan
+    // token, absensi itu harus milik pemilik token. Tanpa token (aplikasi yang
+    // beredar) tetap seperti sebelumnya.
+    $guru_token = guru_id_dari_token($conn);
+    if ($guru_token !== null) {
+        $id_absensi = (int)$jurnal_bk_id;
+        $stmt_milik = $conn->prepare("SELECT id FROM absensi WHERE id = ? AND guru_id = ?");
+        $stmt_milik->bind_param("ii", $id_absensi, $guru_token);
+        $stmt_milik->execute();
+        $milik = $stmt_milik->get_result()->fetch_assoc();
+        $stmt_milik->close();
+        if (!$milik) {
+            throw new Exception("Jurnal BK tidak ditemukan.");
+        }
+    }
     
     // Step 1: Identitas Kegiatan
     $nama_kegiatan = $data['nama_kegiatan'] ?? '';

@@ -56,24 +56,7 @@ function guru_id_pemanggil(mysqli $conn, $guru_id_kiriman): int
         return $hasil;
     }
 
-    $guru_id_token = null;
-    // Token terbitan login.php selalu 64 karakter hex; yang lain tidak perlu
-    // sampai ke basis data.
-    if (preg_match('/^[0-9a-f]{64}$/', $token)) {
-        try {
-            $stmt = $conn->prepare("SELECT id FROM guru WHERE auth_token = ? LIMIT 1");
-            $token_hash = hash('sha256', $token);
-            $stmt->bind_param("s", $token_hash);
-            $stmt->execute();
-            $baris = $stmt->get_result()->fetch_assoc();
-            $stmt->close();
-            if ($baris) {
-                $guru_id_token = (int)$baris['id'];
-            }
-        } catch (Throwable $e) {
-            error_log("auth.php: pencarian token gagal: " . $e->getMessage());
-        }
-    }
+    $guru_id_token = cari_guru_dari_token($conn, $token);
 
     if ($guru_id_token === null) {
         $hasil = $guru_id_kiriman;
@@ -87,6 +70,57 @@ function guru_id_pemanggil(mysqli $conn, $guru_id_kiriman): int
         : 'token';
     catat_autentikasi($conn, $cara, $hasil);
     return $hasil;
+}
+
+// Untuk endpoint yang tidak menerima guru_id sama sekali (inventaris K4)
+// atau menerimanya per butir (K2): identitas HANYA dari token.
+//   - null → tidak ada token yang sah; endpoint berjalan persis seperti
+//     sebelum fase B. Dicatat sebagai 'tanpa_token' atau 'token_tidak_sah'.
+//   - int  → guru pemilik token; endpoint membatasi diri ke data guru itu.
+// Penolakan hanya pernah terjadi pada permintaan BERTOKEN yang menyentuh data
+// guru lain — aplikasi yang beredar belum mengirim token, jadi tidak terkena.
+function guru_id_dari_token(mysqli $conn): ?int
+{
+    static $sudah = false, $hasil = null;
+    if ($sudah) {
+        return $hasil;
+    }
+    $sudah = true;
+
+    $token = token_dari_header();
+    if ($token === null) {
+        catat_autentikasi($conn, 'tanpa_token', 0);
+        return $hasil = null;
+    }
+
+    $hasil = cari_guru_dari_token($conn, $token);
+    if ($hasil === null) {
+        catat_autentikasi($conn, 'token_tidak_sah', 0);
+    } else {
+        catat_autentikasi($conn, 'token', $hasil);
+    }
+    return $hasil;
+}
+
+function cari_guru_dari_token(mysqli $conn, string $token): ?int
+{
+    // Token terbitan login.php selalu 64 karakter hex; yang lain tidak perlu
+    // sampai ke basis data.
+    if (!preg_match('/^[0-9a-f]{64}$/', $token)) {
+        return null;
+    }
+    try {
+        $stmt = $conn->prepare("SELECT id FROM guru WHERE auth_token = ? LIMIT 1");
+        $token_hash = hash('sha256', $token);
+        $stmt->bind_param("s", $token_hash);
+        $stmt->execute();
+        $baris = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+        return $baris ? (int)$baris['id'] : null;
+    } catch (Throwable $e) {
+        error_log("auth.php: pencarian token gagal: " . $e->getMessage());
+        return null;
+    }
 }
 
 // Pencatatan tidak boleh menggagalkan permintaan: galat apa pun cukup ke

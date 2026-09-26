@@ -14,6 +14,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'OPTIONS') {
 }
 
 require_once 'includes/db.php';
+require_once __DIR__ . '/includes/auth.php';
 
 $conn = null;
 
@@ -27,22 +28,23 @@ try {
     $data = json_decode($json, true);
 
     $notifikasi_id = $data['notifikasi_id'] ?? 0;
-    // $guru_id = $data['guru_id'] ?? 0; // Opsional: untuk keamanan
 
     if ($notifikasi_id === 0) {
         http_response_code(400);
         throw new Exception("ID Notifikasi wajib diisi.");
     }
 
-    // Opsional: Anda bisa menambahkan pengecekan guru_id di sini
-    // $sql = "DELETE FROM notifikasi WHERE id = ? AND guru_id = ?";
-    // $stmt = $conn->prepare($sql);
-    // $stmt->bind_param("ii", $notifikasi_id, $guru_id);
-    
-    // Versi sederhana tanpa cek guru:
-    $sql = "DELETE FROM notifikasi WHERE id = ?";
-    $stmt = $conn->prepare($sql);
-    $stmt->bind_param("i", $notifikasi_id);
+    // Fase B (inventaris K4): dengan token, hanya notifikasi milik pemilik token
+    // yang tersentuh; milik guru lain diperlakukan seperti id yang tidak ada.
+    // Tanpa token (aplikasi yang beredar) tetap seperti sebelumnya.
+    $guru_token = guru_id_dari_token($conn);
+    if ($guru_token === null) {
+        $stmt = $conn->prepare("DELETE FROM notifikasi WHERE id = ?");
+        $stmt->bind_param("i", $notifikasi_id);
+    } else {
+        $stmt = $conn->prepare("DELETE FROM notifikasi WHERE id = ? AND guru_id = ?");
+        $stmt->bind_param("ii", $notifikasi_id, $guru_token);
+    }
 
     if ($stmt->execute()) {
         if ($stmt->affected_rows > 0) {

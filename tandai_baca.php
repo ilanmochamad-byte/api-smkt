@@ -10,6 +10,7 @@ ini_set('display_errors', '0'); error_reporting(E_ALL);
 
 // Database
 require_once 'includes/db.php';
+require_once __DIR__ . '/includes/auth.php';
 
 $conn = null;
 
@@ -27,9 +28,19 @@ try {
         throw new Exception("Notifikasi ID tidak valid.");
     }
 
-    $sql = "UPDATE notifikasi SET is_read = 1 WHERE id = ?";
-    $stmt = $conn->prepare($sql);
-    $stmt->bind_param("i", $notifikasi_id);
+    // Fase B (inventaris K4): dengan token, hanya notifikasi milik pemilik token
+    // yang tersentuh; milik guru lain diperlakukan seperti id yang tidak ada.
+    // Tanpa token (aplikasi yang beredar) tetap seperti sebelumnya.
+    // Jawabannya tetap "success" walau tidak ada baris yang berubah, seperti
+    // sebelumnya (notifikasi yang sudah terbaca juga 0 baris).
+    $guru_token = guru_id_dari_token($conn);
+    if ($guru_token === null) {
+        $stmt = $conn->prepare("UPDATE notifikasi SET is_read = 1 WHERE id = ?");
+        $stmt->bind_param("i", $notifikasi_id);
+    } else {
+        $stmt = $conn->prepare("UPDATE notifikasi SET is_read = 1 WHERE id = ? AND guru_id = ?");
+        $stmt->bind_param("ii", $notifikasi_id, $guru_token);
+    }
     $stmt->execute();
     
     http_response_code(200);
