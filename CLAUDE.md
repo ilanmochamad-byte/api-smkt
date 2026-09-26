@@ -188,6 +188,21 @@ Migrasi dilakukan **empat fase**, dan tidak boleh dipadatkan:
      undisliked` pada absensi 3916. Lewat aplikasi yang beredar (tanpa
      token): absen mengajar tersimpan, like lalu batal di galeri dashboard,
      dan simpan profil berhasil.
+  4. Gelombang 4 — delapan endpoint K1 yang membaca `guru_id` dari body
+     JSON: `ajukan_absensi`, `proses_absen_harian`, `proses_absen_hp`,
+     `simpan_jurnal` (`$data->guru_id ?? 0`), `simpan_push_token`,
+     `simpan_refleksi`, `update_jurnal`, `save_token`. Di `ajukan_absensi`,
+     `simpan_jurnal`, dan `save_token` pembacaan ganda (validasi lalu bind)
+     diganti satu variabel `$guru_id`. Tiga yang dulu tanpa `(int)`
+     (`proses_absen_harian`, `proses_absen_hp`, `simpan_refleksi`) kini
+     lebih ketat hanya untuk masukan yang memang tidak sah.
+     Sonde: `proses_absen_harian` dengan koordinat 0,0 (ditolak "terlalu
+     jauh" sebelum menulis), `proses_absen_hp` dengan tanggal 2000-01-01
+     (ditolak sebelum mencari siswa), `update_jurnal` dengan id
+     2147483647 (`UPDATE ... AND guru_id = ?` mengenai 0 baris → 404).
+     Lima sisanya menggabungkan pemeriksaan `guru_id` dengan field lain,
+     jadi melewatinya berarti menulis — diuji lewat aplikasi atau dipantau
+     dari `catatan_autentikasi`. `2aa774b`. **Belum di-deploy.**
 
   **Inventaris** (26 September 2026, semua 70 berkas di akar dibaca):
 
