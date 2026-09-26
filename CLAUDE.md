@@ -147,8 +147,20 @@ Migrasi dilakukan **empat fase**, dan tidak boleh dipadatkan:
   Gelombang:
   1. `983ee19` — `includes/auth.php`, hash token di `login.php`, dan
      `get_unread_count.php` (dipanggil setiap dashboard dibuka; sekaligus
-     membuktikan LiteSpeed meneruskan header `Authorization`). **Belum
-     di-deploy.**
+     membuktikan LiteSpeed meneruskan header `Authorization`). **Teruji di
+     produksi 26 September 2026:** dengan token, tanpa header, dan dengan
+     token palsu ketiganya 200 dengan jawaban sama, dan tercatat sebagai
+     `token`, `guru_id`, `token_tidak_sah` untuk guru 9. Baris `token` itu
+     juga membuktikan kolomnya berisi hash — `auth.php` hanya mencari
+     `hash('sha256', token)`. Header sampai ke PHP tanpa aturan `.htaccess`.
+  2. Gelombang 2 — 22 endpoint K1 yang membaca `guru_id` lewat `$_GET`
+     (semua K1 `$_GET` di inventaris selain `get_unread_count`). Semuanya
+     sudah punya `$conn` sebelum baris itu. Tiga yang dulu tanpa `(int)`
+     (`export_rekap_absen_harian`, `get_riwayat_jurnal`,
+     `get_riwayat_pengajuan`) sudah mengikat `bind_param("i")`, jadi cast
+     di dalam fungsi tidak mengubah perilakunya. Uji: tiap endpoint dipanggil
+     tanpa header dengan `guru_id` guru uji dan dengan token dengan
+     `guru_id=0`; kedua jawaban harus identik. **Belum di-deploy.**
 
   **Inventaris** (26 September 2026, semua 70 berkas di akar dibaca):
 
