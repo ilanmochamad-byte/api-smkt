@@ -209,7 +209,7 @@ sana, tidak disebut teruji.
   `ProfileCard` kosong, kolom nama di Buat Jurnal kosong, dan PDF riwayat
   jurnal, penilaian, ekspor, serta export laporan mencetak `undefined` atau
   "Guru" — sampai guru login ulang. Semuanya tampilan; tidak ada yang
-  mengirim `nama` ke server. `nama` kini salinan `nama_guru` (baris 165-169).
+  mengirim `nama` ke server. `nama` kini salinan `nama_guru` (baris 164-168).
   Teruji di produksi 26 September 2026: setelah simpan profil dan aplikasi
   ditutup paksa lalu dibuka ulang, sapaan dashboard menampilkan nama dan
   kolom nama di Buat Jurnal terisi. `AsyncStorage 'nama_guru'` dari login
