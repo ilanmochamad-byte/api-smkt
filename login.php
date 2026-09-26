@@ -5,19 +5,8 @@ header("Access-Control-Allow-Origin: *");
 header("Access-Control-Allow-Methods: POST");
 header("Access-Control-Allow-Headers: Content-Type, Access-Control-Allow-Headers, Authorization, X-Requested-With");
 
-// --- GANTI DENGAN INFORMASI DATABASE ANDA ---
+// Menyediakan $conn; kalau koneksi gagal, db.php sendiri yang menjawab 500
 require_once 'includes/db.php';
-// -----------------------------------------
-
-// Membuat koneksi
-$conn = new mysqli($db_host, $db_user, $db_pass, $db_name);
-
-// // Cek koneksi
-if ($conn->connect_error) {
-    http_response_code(500); // Server Error
-    echo json_encode(["message" => "Koneksi database gagal: " . $conn->connect_error]);
-    exit();
-}
 
 // Mengambil JSON body yang dikirim dari aplikasi React Native
 $json_data = file_get_contents("php://input");
@@ -44,8 +33,7 @@ if ($result->num_rows > 0) {
     // Verifikasi password yang di-hash (yang diawali $2a$)
     if (password_verify($password, $user['password'])) {
         // Jika password cocok
-        http_response_code(200); // OK
-        echo json_encode([
+        $respons = [
             "message" => "Login Berhasil!",
             "user" => [
                 "id" => $user['id'],
@@ -54,7 +42,30 @@ if ($result->num_rows > 0) {
                 "foto_profil" => $user['foto_profil'],
                 "is_bk" => $user['is_bk'] // --- DITAMBAHKAN: Mengirim status is_bk ke aplikasi ---
             ]
-        ]);
+        ];
+
+        // Fase A migrasi autentikasi (lihat CLAUDE.md): terbitkan token dan
+        // sertakan di tingkat atas respons. Aplikasi lama hanya membaca
+        // "message" dan "user", jadi field tambahan ini diabaikannya.
+        // Satu kolom = satu sesi per guru: login di perangkat lain menimpa
+        // token perangkat sebelumnya.
+        // Kalau token gagal disimpan, login tetap berhasil tanpa "token" —
+        // belum ada endpoint yang mewajibkannya.
+        try {
+            $token = bin2hex(random_bytes(32));
+            $stmt_token = $conn->prepare("UPDATE guru SET auth_token = ? WHERE id = ?");
+            $stmt_token->bind_param("si", $token, $user['id']);
+            if (!$stmt_token->execute()) {
+                throw new Exception($stmt_token->error);
+            }
+            $stmt_token->close();
+            $respons["token"] = $token;
+        } catch (Throwable $e) {
+            error_log("login.php: token gagal disimpan untuk guru " . $user['id'] . ": " . $e->getMessage());
+        }
+
+        http_response_code(200); // OK
+        echo json_encode($respons);
     } else {
         // Jika password salah
         http_response_code(401); // Unauthorized
