@@ -241,7 +241,17 @@ Migrasi dilakukan **empat fase**, dan tidak boleh dipadatkan:
      2147483647 harus ditolak. `hapus_notifikasi`, `tandai_baca`, dan
      jalur bertoken `post_nilai` tidak diuji langsung — tidak ada cara
      membuat notifikasi atau nilai uji tanpa menyentuh data sungguhan;
-     polanya sama dengan `delete_jurnal`. `9dcaa22`. **Belum di-deploy.**
+     polanya sama dengan `delete_jurnal`. `9dcaa22`. **Di-deploy 26
+     September 2026; uji dilaporkan lolos oleh pengguna.** Keluaran skripnya
+     tidak ditempelkan, jadi rincian per langkah (HTTP delete, sisa jurnal
+     guru 999999, pesan konseling) tidak tercatat di sini.
+
+  **Status fase B (26 September 2026): semua endpoint dalam rencana sudah
+  membaca token** — K1 (37), K2 (1), K4 (6). Sisa sisi server hanya K3
+  (sembilan endpoint approval dan laporan), yang butuh pemeriksaan peran dan
+  baru bisa dikunci di fase D. Berikutnya fase C: aplikasi v3.0 yang
+  mengirim `Authorization: Bearer <token>`. Selama itu belum rilis,
+  `catatan_autentikasi` akan hampir seluruhnya `guru_id` dan `tanpa_token`.
 
   **Inventaris** (26 September 2026, semua 70 berkas di akar dibaca):
 
