@@ -127,22 +127,22 @@ sana, tidak disebut teruji.
   yang membaca header `Authorization` atau kolom `auth_token`; `login.php`
   menerbitkan token sejak `1b9b068` (fase A, di produksi 26 September 2026). Endpoint
   paling terdampak:
-  `get_profil_guru.php:13` mengirim `SELECT *` tabel `guru` utuh sebagai
-  `profil`, termasuk hash `password` dan `push_token`; `get_honor.php:5`;
+  `get_profil_guru.php:13` mengirim data profil guru mana pun;
+  `get_honor.php:5`;
   `post_nilai.php:46` mengambil `guru_id` dari tiap butir kiriman;
   `proses_action_piket.php:18` mengubah status piket siapa pun tanpa memeriksa
   apa-apa, termasuk bahwa barisnya masih `Pending`; `save_token.php:16`.
-  - **Wajib ditutup sebelum fase B.** Sejak fase A, `SELECT *` itu juga
-    mengirim `auth_token` yang sedang berlaku: `get_profil_guru.php:13`
-    (sebagai `profil`, ke siapa pun yang menebak `guru_id`) dan
-    `update_profil_guru.php:151` (sebagai `user` di respons sukses). Selama
-    belum ada penegakan tidak ada kerugian tambahan — `guru_id` saja sudah
-    cukup — tapi di fase B pemakaian token curian tercatat sebagai
-    pemanggil sah, dan di fase D token itu membuka akses penuh. Keluarkan
-    `password`, `auth_token`, `push_token`, dan `expo_push_token` dari kedua
-    respons, setelah memeriksa field mana yang dibaca `mengajar.tsx`,
-    `(tabs)/todo.tsx`, `(tabs)/profil.tsx`, dan layar edit profil di
-    ClassyncApp.
+  - **Wajib ditutup sebelum fase B.** `update_profil_guru.php:151` mengirim
+    `SELECT *` tabel `guru` sebagai `user` di respons sukses — termasuk hash
+    `password`, `push_token`, `expo_push_token`, dan sejak fase A
+    `auth_token` yang sedang berlaku. Siapa pun bisa memicunya dengan
+    `guru_id` orang lain, meski lewat penulisan profil. Selama belum ada
+    penegakan tidak ada kerugian tambahan — `guru_id` saja sudah cukup —
+    tapi di fase B pemakaian token curian tercatat sebagai pemanggil sah,
+    dan di fase D token itu membuka akses penuh. Sebelum membuang
+    field-nya, periksa dulu apakah `edit_profil.tsx` membaca `user` dari
+    respons itu. Padanannya di `get_profil_guru.php` sudah ditutup di
+    `c5e8d0a`.
 - **Kritis** — endpoint absen aplikasi tidak memeriksa jadwal di sisi server.
   Ditemukan saat pemeriksaan ulang ini; terpisah dari butir autentikasi dan
   **tetap ada setelah token ditegakkan**, karena guru yang sah pun bisa
@@ -202,6 +202,17 @@ sana, tidak disebut teruji.
 
 ### Sudah ditutup
 
+- ~~`get_profil_guru.php` mengirim kredensial dalam `profil`~~ — commit
+  `c5e8d0a`. `SELECT *` tabel `guru` dikirim utuh ke siapa pun yang menebak
+  `guru_id`, termasuk hash `password`, `push_token`, `expo_push_token`, dan
+  sejak fase A `auth_token` yang sedang berlaku. Keempatnya kini di-`unset`
+  (baris 22-24); field lain dan `jadwal` tidak berubah. Pemanggilnya hanya
+  `mengajar.tsx` dan `(tabs)/todo.tsx` (membaca `jadwal`) serta
+  `(tabs)/profil.tsx`, dan tidak satu pun versi dalam riwayat Git
+  ClassyncApp membaca keempat field itu dari `profil`. Teruji di produksi
+  26 September 2026: keempat nama field hilang dari `profil`, field lain
+  dan jumlah jadwal tetap, dan layar Profil, Edit Profil, Todo, serta
+  Mengajar di aplikasi yang beredar tampil normal.
 - ~~`proxy.php` mencatat password dan meneruskan tanpa saringan~~ — commit
   `a6822aa`. Ia meneruskan permintaan apa pun ke domain API sendiri dengan
   CORS `*`, tanpa daftar putih endpoint, dan menulis body mentah setiap
