@@ -314,9 +314,11 @@ Migrasi dilakukan **empat fase**, dan tidak boleh dipadatkan:
   `get_progress_mengajar`, `get_riwayat_absensi`), dengan nol
   `token_beda_guru_id` dan nol `token_tidak_sah`. Baris `guru_id` guru 9
   pada pagi yang sama berasal dari 2.9.2 sebelum diperbarui — kedua versi
-  hidup berdampingan tanpa masalah. **Belum terbukti:** jalur tulis dengan
-  token, dan OTA di channel `production` (OTA pertama menambah baris
-  "Pembaruan" di layar Pengaturan sebagai penanda).
+  hidup berdampingan tanpa masalah. **OTA terbukti** hari yang sama: pembaruan
+  pertama (ClassyncApp `d5879b0`) sampai ke HP penguji, terlihat dari baris
+  "Pembaruan" di Pengaturan (`01a0e078 · 27/9/2026`). Paksaan login ulang dan
+  `services/api.ts` kini bisa dikirim lewat OTA. **Belum terbukti:** jalur
+  tulis dengan token.
 
   Keputusan 26 September 2026:
   - v3.0 dibuat kecil: interceptor pada instance axios **bawaan** di
