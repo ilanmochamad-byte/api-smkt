@@ -9,8 +9,10 @@ menulis, `export_*` menghasilkan berkas.
 
 ## SISTEM INI SEDANG DIPAKAI GURU SETIAP HARI
 
-Aplikasi dirilis lewat **Play Store dan App Store**, keduanya melewati review,
-dan **tidak ada pembaruan OTA** (`expo-updates` belum terpasang). Artinya:
+Aplikasi dirilis lewat **Play Store dan App Store**, keduanya melewati review.
+Sejak ClassyncApp 3.0.0 (27 September 2026) `expo-updates` terpasang, jadi
+perbaikan yang hanya menyentuh JavaScript bisa sampai lewat OTA — tapi hanya ke
+perangkat yang sudah 3.0. Versi 2.9.x tanpa OTA tetap beredar. Artinya:
 
 - Versi lama beredar berminggu-minggu setelah versi baru rilis.
 - Setiap perubahan di sini **wajib kompatibel mundur** dengan aplikasi lama.
@@ -304,8 +306,19 @@ Migrasi dilakukan **empat fase**, dan tidak boleh dipadatkan:
 - **Fase C** — rilis aplikasi v3.0 dengan `services/api.ts` terpusat dan
   interceptor yang menyisipkan header. Sekalian pasang `expo-updates`.
 
-  **Sedang berjalan** (ClassyncApp 3.0.0, belum dirilis). Keputusan 26
-  September 2026:
+  **Dirilis** — ClassyncApp 3.0.0 (commit `9a424a4`) disetujui dan terbit di
+  Play Store dan App Store 27 September 2026. Teruji di produksi hari itu:
+  setelah HP penguji memperbarui dan login, guru 9 tercatat `token` di delapan
+  endpoint baca (`get_unread_count`, `get_profil_guru`, `get_honor`,
+  `get_gallery`, `cek_jadwal_sekarang`, `get_mapel_guru`,
+  `get_progress_mengajar`, `get_riwayat_absensi`), dengan nol
+  `token_beda_guru_id` dan nol `token_tidak_sah`. Baris `guru_id` guru 9
+  pada pagi yang sama berasal dari 2.9.2 sebelum diperbarui — kedua versi
+  hidup berdampingan tanpa masalah. **Belum terbukti:** jalur tulis dengan
+  token, dan OTA di channel `production` (OTA pertama menambah baris
+  "Pembaruan" di layar Pengaturan sebagai penanda).
+
+  Keputusan 26 September 2026:
   - v3.0 dibuat kecil: interceptor pada instance axios **bawaan** di
     `services/autentikasi.ts`, dipasang sekali di `app/_layout.tsx`, plus
     `headerAutentikasi()` di empat `fetch()`. `services/api.ts` terpusat
@@ -328,6 +341,18 @@ Migrasi dilakukan **empat fase**, dan tidak boleh dipadatkan:
 - **Fase D** — baca catatan fase B, hubungi guru yang belum memperbarui, lalu
   tegakkan. Mulai dari 24 endpoint tulis dan dua endpoint tersensitif
   (`get_honor.php`, `get_buku_pribadi_bk.php`).
+
+  Angka pemantauannya — guru yang masih memanggil tanpa token, per hari:
+  ```sql
+  SELECT tanggal, COUNT(DISTINCT guru_id) AS guru_tanpa_token
+  FROM catatan_autentikasi
+  WHERE cara IN ('guru_id', 'tanpa_token') AND guru_id > 0
+  GROUP BY tanggal ORDER BY tanggal DESC;
+  ```
+  (`tanpa_token` di endpoint K4 dicatat dengan `guru_id` 0, jadi guru di
+  balik panggilan itu tidak terlihat; angkanya bersandar pada endpoint K1.)
+  Guru yang memakai 3.0 tapi login sebelum 3.0 juga masuk hitungan ini —
+  paksaan login ulang lewat OTA menurunkannya.
 
 **Penegakan ditentukan oleh angka, bukan tanggal.** Jangan menolak permintaan
 tanpa token sebelum catatan menunjukkan tidak ada lagi yang memakainya.
