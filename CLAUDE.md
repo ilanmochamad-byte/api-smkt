@@ -317,8 +317,11 @@ Migrasi dilakukan **empat fase**, dan tidak boleh dipadatkan:
   hidup berdampingan tanpa masalah. **OTA terbukti** hari yang sama: pembaruan
   pertama (ClassyncApp `d5879b0`) sampai ke HP penguji, terlihat dari baris
   "Pembaruan" di Pengaturan (`01a0e078 · 27/9/2026`). Paksaan login ulang dan
-  `services/api.ts` kini bisa dikirim lewat OTA. **Belum terbukti:** jalur
-  tulis dengan token.
+  `services/api.ts` kini bisa dikirim lewat OTA. **Jalur tulis juga
+  terbukti** pukul 08.31: `simpan_push_token` (K1, body JSON) tercatat
+  `token` 3 kali dan `tandai_baca` (K4, lewat `guru_id_dari_token()`) 1 kali,
+  selain `get_notifikasi` baru di jalur baca — masih nol `token_beda_guru_id`
+  dan nol `token_tidak_sah`. **Fase C selesai.**
 
   Keputusan 26 September 2026:
   - v3.0 dibuat kecil: interceptor pada instance axios **bawaan** di
