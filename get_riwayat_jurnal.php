@@ -37,7 +37,16 @@ try {
                 COALESCE(a.catatan_refleksi, 'Lihat form konseling lanjutan') AS catatan_refleksi,
                 COALESCE(a.penilaian_evaluasi, jbk.metode_teknik, '-') AS penilaian_evaluasi,
                 COALESCE(jm.mata_pelajaran, jbk.komponen_layanan, 'Layanan BK') AS mata_pelajaran, 
-                COALESCE(jm.kelas, jbk.sasaran_layanan, '-') AS kelas
+                COALESCE(jm.kelas, jbk.sasaran_layanan, '-') AS kelas,
+                -- Tambahan untuk jurnal BK (null/0 pada baris mengajar).
+                -- Aplikasi lama mengabaikan kunci yang tidak dikenalnya.
+                -- jurnal_bk_id di tabel konseling berisi absensi.id.
+                jbk.bidang_layanan,
+                jbk.waktu AS waktu_layanan,
+                jbk.sumber,
+                jbk.media_alat,
+                IF(a.tipe_absensi = 'bimbingan', EXISTS(SELECT 1 FROM konseling_individu ki WHERE ki.jurnal_bk_id = a.id), 0) AS ada_laporan_individu,
+                IF(a.tipe_absensi = 'bimbingan', EXISTS(SELECT 1 FROM konseling_kelompok kk WHERE kk.jurnal_bk_id = a.id), 0) AS ada_laporan_kelompok
             FROM absensi a
             LEFT JOIN jadwal_mengajar jm ON a.jadwal_id = jm.id AND a.tipe_absensi = 'mengajar'
             LEFT JOIN jurnal_bk jbk ON a.id = jbk.absensi_guru_id AND a.tipe_absensi = 'bimbingan'
