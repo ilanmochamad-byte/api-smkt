@@ -232,7 +232,9 @@ Migrasi dilakukan **empat fase**, dan tidak boleh dipadatkan:
        berisi `absensi.id` (`riwayat_jurnal.tsx:112` mengirim `item.id`
        dari `get_riwayat_jurnal.php`, yaitu `a.id`). Dengan token, absensi
        itu harus milik pemilik token; kalau tidak, 400 "Jurnal BK tidak
-       ditemukan."
+       ditemukan." Sejak PR #2 (perbaikan BK, 19 November 2026) kedua
+       endpoint juga menolak kiriman tidak sah **tanpa** token, lihat
+       "Sudah ditutup".
      Ini **penolakan pertama** di fase B, dan hanya untuk permintaan
      bertoken yang menyentuh data guru lain — disetujui 26 September 2026.
      Uji: `get_detail_jurnal` dengan token pada jurnal guru lain (hanya
@@ -474,6 +476,48 @@ sana, tidak disebut teruji.
   keliru.
 
 ### Sudah ditutup
+
+- ~~`proses_konseling_individu`/`_kelompok` menyimpan baris kosong dan
+  laporan ganda~~ — PR #2, commit `78d8059` dan `095d257` (perbaikan BK
+  langkah 7, 19 November 2026).
+  - **Baris kosong.** Kedua endpoint hanya menghentikan OPTIONS. GET, HEAD,
+    atau POST kosong lolos ke `INSERT` dengan `jurnal_bk_id` 0 dan string
+    kosong. Sensus produksi 19 November 2026 menemukan 25 baris kosong di
+    `konseling_individu` dan 33 di `konseling_kelompok`, yang terakhir
+    19 Oktober 2026. Uji lokal mereproduksinya: satu `GET` ke versi lama
+    membuat satu baris.
+  - **Laporan ganda.** Satu jurnal bisa punya banyak laporan. Versi lama
+    yang dikirimi lima laporan serentak menyimpan kelimanya.
+  - **Penjaga sekarang, berurutan:**
+    1. selain POST dijawab 405 sebelum basis data disentuh;
+    2. `jurnal_bk_id` harus bilangan bulat positif, jadi body kosong atau
+       bukan JSON ditolak "Jurnal BK tidak ditemukan.";
+    3. laporan yang seluruh isiannya kosong ditolak;
+    4. di dalam transaksi, baris `absensi` dikunci lewat PK, harus bertipe
+       `bimbingan`, dan dengan token harus milik pemilik token;
+    5. jurnal yang sudah punya laporan individu **atau** kelompok ditolak.
+       Ini keputusan kepala sekolah: satu jurnal satu laporan.
+
+    Kedua endpoint mengunci baris yang sama, jadi kiriman serentak lintas
+    jenis hanya meloloskan satu. `guru_id_dari_token()` dipanggil sebelum
+    transaksi, supaya `catatan_autentikasi` tidak ikut di-rollback.
+  - **Kompatibilitas:** semua versi aplikasi mengirim POST JSON berisi id
+    sungguhan dari `riwayat_jurnal.tsx`, dan hanya membaca `status` dan
+    `message`. Bentuk jawabannya tidak berubah. Token yang tidak sah tetap
+    diperlakukan seperti tanpa token.
+  - **Pengujian:** diuji lokal dengan payload aplikasi, tanpa dan dengan
+    token, termasuk serentak dengan `PHP_CLI_SERVER_WORKERS=6`. `php -S`
+    biasa hanya punya satu worker, jadi uji serentak tanpa itu menyesatkan.
+    Belum dilaporkan teruji di produksi, per catatan ini.
+  - **Sisa:** `$e->getMessage()` mentah di blok `catch` tetap ada, karena itu
+    butir terpisah. Ke-58 baris kosong belum dibersihkan; keputusannya ada di
+    pengguna, setelah terbukti jumlahnya tidak bertambah lagi.
+
+  Pada hari yang sama, PR #1 (`19a27df`) menambah enam kunci ke
+  `get_riwayat_jurnal.php` untuk baris BK: `bidang_layanan`, `waktu_layanan`,
+  `sumber`, `media_alat`, `ada_laporan_individu`, dan `ada_laporan_kelompok`.
+  Field lama tidak berubah. Riwayat lengkap perbaikan BK ada di bagian
+  "Layanan BK" `CLAUDE.md` classync.
 
 - ~~`user` dari `update_profil_guru.php` tanpa `nama`~~ — commit `773e0a8`.
   `edit_profil.tsx:116` menimpa SecureStore `userData` dengan baris tabel
